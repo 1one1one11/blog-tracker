@@ -114,7 +114,12 @@ def main() -> int:
     digest_path.write_text(digest, encoding="utf-8")
     write_digest_payload(
         digest_json_path,
-        build_digest_payload(enriched_posts, generated_at=generated_at, days_back=days_back),
+        build_digest_payload(
+            enriched_posts,
+            generated_at=generated_at,
+            days_back=days_back,
+            priority_bloggers=priority_bloggers,
+        ),
     )
     export_dashboard_json(settings, enriched_posts, priority_bloggers, generated_at)
 

@@ -18,6 +18,7 @@ def _normalize_post(post: dict[str, Any]) -> dict[str, Any]:
     normalized["display_name"] = normalized.get("display_name") or normalized.get("blog_id") or "알 수 없음"
     normalized["blog_title"] = normalized.get("blog_title") or normalized["display_name"]
     normalized["tags"] = list(normalized.get("tags") or [])
+    normalized["is_priority"] = bool(normalized.get("is_priority"))
     normalized["summary"] = (normalized.get("summary") or "").strip()
     normalized["title"] = (normalized.get("title") or "").strip()
     normalized["search_text"] = " ".join(
@@ -66,6 +67,7 @@ def build_archive_payload(posts: list[dict[str, Any]], generated_at: datetime) -
     return {
         "generated_at": generated_at.isoformat(),
         "post_count": len(posts),
+        "priority_post_count": sum(1 for post in posts if post["is_priority"]),
         "classifications": dict(classifications.most_common()),
         "authors": dict(authors.most_common(50)),
         "groups": dict(groups.most_common()),
@@ -135,6 +137,12 @@ def render_index_html() -> str:
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 12px;
       margin-top: 22px;
+    }
+    .quick-links {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .metric, .panel, .post {
       border: 1px solid var(--line);
@@ -224,10 +232,11 @@ def render_index_html() -> str:
     }
     .posts {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
     }
     .post {
-      padding: 20px;
+      padding: 18px;
       background: linear-gradient(180deg, rgba(255,255,255,0.76), rgba(255,250,243,0.98));
     }
     .post-top {
@@ -256,6 +265,10 @@ def render_index_html() -> str:
       margin: 0;
       line-height: 1.65;
       color: #374151;
+      display: -webkit-box;
+      -webkit-line-clamp: 5;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .meta {
       margin-top: 14px;
@@ -277,6 +290,26 @@ def render_index_html() -> str:
       font-weight: 700;
       text-decoration: none;
     }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.88rem;
+    }
+    .quick-link:hover {
+      border-color: rgba(154, 52, 18, 0.28);
+      color: var(--accent);
+    }
+    .priority-badge {
+      background: rgba(14, 116, 144, 0.12);
+      color: #0f5f73;
+    }
     .empty {
       padding: 28px;
       text-align: center;
@@ -287,6 +320,7 @@ def render_index_html() -> str:
       .panel { position: static; }
       .shell { width: min(100% - 20px, 1180px); padding-top: 20px; }
       .hero { padding: 22px; }
+      .posts { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -301,6 +335,7 @@ def render_index_html() -> str:
         <article class="metric"><label>작성자 수</label><strong id="metric-authors">-</strong></article>
         <article class="metric"><label>마지막 갱신</label><strong id="metric-updated" style="font-size:1rem">-</strong></article>
       </div>
+      <div class="quick-links" id="quick-links"></div>
     </section>
 
     <section class="layout">
@@ -328,6 +363,13 @@ def render_index_html() -> str:
             <option value="">전체</option>
             <option value="true">본문 추출 성공</option>
             <option value="false">본문 추출 실패</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="priority-only">우선 블로거</label>
+          <select id="priority-only">
+            <option value="">전체</option>
+            <option value="true">우선 블로거만</option>
           </select>
         </div>
         <div class="chips" id="top-classes"></div>
@@ -359,7 +401,9 @@ def render_index_html() -> str:
       author: document.getElementById("author"),
       search: document.getElementById("search"),
       hasContent: document.getElementById("has-content"),
+      priorityOnly: document.getElementById("priority-only"),
       topClasses: document.getElementById("top-classes"),
+      quickLinks: document.getElementById("quick-links"),
       metricPosts: document.getElementById("metric-posts"),
       metricClasses: document.getElementById("metric-classes"),
       metricAuthors: document.getElementById("metric-authors"),
@@ -421,6 +465,55 @@ def render_index_html() -> str:
         .join("");
     }
 
+    function localDateKey(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function buildQuickLink(label, params) {
+      const url = new URL(window.location.href);
+      url.search = "";
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) {
+          url.searchParams.set(key, value);
+        }
+      });
+      return `<a class="quick-link" href="${escapeHtml(url.pathname + url.search)}">${escapeHtml(label)}</a>`;
+    }
+
+    function renderQuickLinks() {
+      const generatedAt = new Date(state.archive.generated_at);
+      const offsets = [
+        ["오늘 새 글", 0],
+        ["어제 새 글", 1],
+        ["그제 새 글", 2],
+        ["나흘 전 새 글", 4],
+      ];
+      const links = offsets.map(([label, offset]) => {
+        const date = new Date(generatedAt);
+        date.setDate(date.getDate() - offset);
+        return buildQuickLink(label, { date: localDateKey(date) });
+      });
+      links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true" }));
+      els.quickLinks.innerHTML = links.join("");
+    }
+
+    function applyUrlFilters() {
+      const params = new URLSearchParams(window.location.search);
+      const date = params.get("date") || "";
+      const priority = params.get("priority") || "";
+      if (date) {
+        els.search.value = date;
+      }
+      if (priority === "true") {
+        els.priorityOnly.value = "true";
+      }
+    }
+
     function renderPosts() {
       const posts = state.filtered;
       els.resultsMeta.textContent = `${posts.length}건 표시 / 누적 ${state.archive.posts.length}건`;
@@ -434,6 +527,7 @@ def render_index_html() -> str:
           <div class="post-top">
             <span class="badge">${escapeHtml(post.classification)}</span>
             <span class="chip">${escapeHtml(post.group_name)}</span>
+            ${post.is_priority ? '<span class="chip priority-badge">우선 블로거</span>' : ""}
             ${post.has_content ? '<span class="chip">본문 추출</span>' : '<span class="chip">RSS 요약 fallback</span>'}
           </div>
           <div class="published-at">게시 시각: ${escapeHtml(formatPublishedAt(post.published_at))}</div>
@@ -456,13 +550,19 @@ def render_index_html() -> str:
       const group = els.group.value;
       const author = els.author.value;
       const hasContent = els.hasContent.value;
+      const priorityOnly = els.priorityOnly.value;
 
       state.filtered = state.archive.posts.filter((post) => {
         if (classification && post.classification !== classification) return false;
         if (group && post.group_name !== group) return false;
         if (author && post.display_name !== author) return false;
         if (hasContent && String(post.has_content) !== hasContent) return false;
-        if (search && !post.search_text.includes(search)) return false;
+        if (priorityOnly === "true" && !post.is_priority) return false;
+        if (search) {
+          const searchKey = search.toLowerCase();
+          const dateKey = localDateKey(post.published_at);
+          if (!post.search_text.includes(searchKey) && dateKey !== searchKey) return false;
+        }
         return true;
       });
       renderPosts();
@@ -482,10 +582,12 @@ def render_index_html() -> str:
       els.metricUpdated.textContent = formatDate(state.archive.generated_at);
 
       renderTopClasses();
+      renderQuickLinks();
       state.filtered = [...state.archive.posts];
+      applyUrlFilters();
       renderPosts();
 
-      [els.classification, els.group, els.author, els.hasContent].forEach((el) => el.addEventListener("change", applyFilters));
+      [els.classification, els.group, els.author, els.hasContent, els.priorityOnly].forEach((el) => el.addEventListener("change", applyFilters));
       els.search.addEventListener("input", applyFilters);
     }
 
