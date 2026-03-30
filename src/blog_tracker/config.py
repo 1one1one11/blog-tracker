@@ -42,7 +42,7 @@ def load_settings() -> Settings:
         state_path=runtime_dir / "state.json",
         output_dir=output_dir,
         timezone=os.getenv("BLOG_TRACKER_TIMEZONE", "Asia/Seoul"),
-        days_back=int(os.getenv("BLOG_TRACKER_DAYS_BACK", "2")),
+        days_back=int(os.getenv("BLOG_TRACKER_DAYS_BACK", "3")),
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
