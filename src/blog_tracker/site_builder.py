@@ -330,6 +330,10 @@ def render_index_html() -> str:
       color: var(--muted);
       font-size: 0.82rem;
     }
+    .author-meta {
+      color: var(--text);
+      font-weight: 800;
+    }
     .published-at {
       margin: 0 0 10px;
       color: var(--accent);
@@ -602,7 +606,7 @@ def render_index_html() -> str:
           <h3><a href="${post.link}" target="_blank" rel="noreferrer">${escapeHtml(post.title || "(제목 없음)")}</a></h3>
           <p>${escapeHtml(post.summary || "요약 없음")}</p>
           <div class="meta">
-            <span>작성자: ${escapeHtml(post.display_name)}</span>
+            <span class="author-meta">작성자: ${escapeHtml(post.display_name)}</span>
             <span>블로그: ${escapeHtml(post.blog_title)}</span>
             <span>발행: ${escapeHtml(formatDate(post.published_at))}</span>
             ${post.category ? `<span>카테고리: ${escapeHtml(post.category)}</span>` : ""}
