@@ -1,6 +1,9 @@
 name: blog-tracker
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "0 22 * * *"
@@ -11,10 +14,10 @@ permissions:
   id-token: write
 
 jobs:
-  run:
+  build:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +29,14 @@ jobs:
           key: blog-state-${{ github.run_id }}
           restore-keys: |
             blog-state-
+
+      - name: Restore site archive
+        uses: actions/cache/restore@v4
+        with:
+          path: data/site/
+          key: blog-site-${{ github.run_id }}
+          restore-keys: |
+            blog-site-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,6 +64,10 @@ jobs:
           NAVER_FOLLOWINGS_URL: "https://section.blog.naver.com/connect/ViewMoreFollowings.naver?blogId=neo-anderson&widgetSeq=1306670"
         run: python scripts/run_tracker.py
 
+      - name: Build static site
+        if: always()
+        run: python scripts/build_site.py
+
       - name: Upload digest
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,11 +75,15 @@ jobs:
           name: blog-digest
           path: output/
 
+      - name: Configure Pages
+        if: always()
+        uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/
+          path: site/
 
       - name: Save tracker state
         if: always()
@@ -73,8 +92,16 @@ jobs:
           path: data/runtime/
           key: blog-state-${{ github.run_id }}
 
+      - name: Save site archive
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/site/
+          key: blog-site-${{ github.run_id }}
+
   deploy:
-    needs: run
+    if: always()
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages

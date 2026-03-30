@@ -7,7 +7,7 @@ from pathlib import Path
 def load_seen_guids(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
     return set(payload.get("seen_guids", []))
 
 

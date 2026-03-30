@@ -12,6 +12,7 @@
 - 팔로잉 목록 텍스트를 `blogs.csv`로 변환하는 import 스크립트
 - 네이버 팔로잉 페이지 URL에서 실제 `blogId`를 복구하는 동기화 스크립트
 - GitHub Actions 스케줄 실행
+- GitHub Pages용 정적 브리핑 아카이브 생성
 
 ## 빠른 시작
 
@@ -113,9 +114,31 @@ GitHub Secrets:
 ```bash
 python -m pytest
 python scripts/run_tracker.py --dry-run
+python scripts/build_site.py
 ```
 
 ## 출력
 
 - 발송용 리포트: `output/digest_YYYYMMDD_HHMMSS.md`
+- 발송/사이트용 JSON: `output/digest_YYYYMMDD_HHMMSS.json`
 - 중복 방지 상태: `data/runtime/state.json`
+- 누적 사이트 아카이브: `data/site/archive.json`
+- 정적 사이트 산출물: `site/index.html`
+
+## 정적 브리핑 페이지
+
+GitHub Actions는 트래커 실행 후 정적 사이트도 함께 생성해 GitHub Pages로 배포합니다.
+
+포함 기능:
+
+- 누적 digest 아카이브
+- 분류 / 소스 그룹 / 작성자 필터
+- 제목 / 요약 / 태그 / 작성자 기준 검색
+- 본문 추출 성공 여부 확인
+
+로컬 미리보기:
+
+```bash
+python scripts/build_site.py
+python -m http.server 8000 -d site
+```
