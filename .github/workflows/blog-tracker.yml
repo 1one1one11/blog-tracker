@@ -1,0 +1,61 @@
+name: blog-tracker
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 22 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore tracker state
+        uses: actions/cache/restore@v4
+        with:
+          path: data/runtime/
+          key: blog-state-${{ github.run_id }}
+          restore-keys: |
+            blog-state-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sync followings
+        env:
+          NAVER_FOLLOWINGS_URL: "https://section.blog.naver.com/connect/ViewMoreFollowings.naver?blogId=neo-anderson&widgetSeq=1306670"
+        run: python scripts/sync_followings.py --url "$NAVER_FOLLOWINGS_URL"
+
+      - name: Run tracker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          BLOG_TRACKER_TIMEZONE: Asia/Seoul
+          BLOG_TRACKER_DAYS_BACK: "2"
+          NAVER_FOLLOWINGS_URL: "https://section.blog.naver.com/connect/ViewMoreFollowings.naver?blogId=neo-anderson&widgetSeq=1306670"
+        run: python scripts/run_tracker.py
+
+      - name: Upload digest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blog-digest
+          path: output/
+
+      - name: Save tracker state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/runtime/
+          key: blog-state-${{ github.run_id }}
