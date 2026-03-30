@@ -7,6 +7,7 @@ from blog_tracker.site_builder import build_site, merge_archive
 def test_merge_archive_deduplicates_by_guid():
     existing = [
         {
+            "blog_id": "blog-1",
             "guid": "post-1",
             "published_at": "2026-03-29T10:00:00+09:00",
             "classification": "미분류",
@@ -24,6 +25,7 @@ def test_merge_archive_deduplicates_by_guid():
         {
             "posts": [
                 {
+                    "blog_id": "blog-1",
                     "guid": "post-1",
                     "published_at": "2026-03-30T10:00:00+09:00",
                     "classification": "기업분석",
@@ -37,6 +39,7 @@ def test_merge_archive_deduplicates_by_guid():
                     "has_content": True,
                 },
                 {
+                    "blog_id": "blog-2",
                     "guid": "post-2",
                     "published_at": "2026-03-28T10:00:00+09:00",
                     "classification": "반도체",
@@ -53,7 +56,7 @@ def test_merge_archive_deduplicates_by_guid():
         }
     ]
 
-    merged = merge_archive(existing, payloads, max_posts=10)
+    merged = merge_archive(existing, payloads, priority_bloggers={"post-1"}, max_posts=10)
     assert len(merged) == 2
     assert merged[0]["guid"] == "post-1"
     assert merged[0]["classification"] == "기업분석"
@@ -69,9 +72,10 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
         "generated_at": "2026-03-30T20:00:00+09:00",
         "post_count": 1,
         "posts": [
-            {
-                "guid": "post-1",
-                "published_at": "2026-03-30T19:00:00+09:00",
+                {
+                    "blog_id": "blog-1",
+                    "guid": "post-1",
+                    "published_at": "2026-03-30T19:00:00+09:00",
                 "classification": "기업분석",
                 "group_name": "핵심",
                 "display_name": "작성자1",
@@ -95,3 +99,4 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
     html = (site_dir / "index.html").read_text(encoding="utf-8")
     assert "우선 블로거 전용 보드" in html
     assert "오늘" in html
+    assert "우선 블로거 목록" in html

@@ -6,19 +6,24 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from blog_tracker.config import load_priority_bloggers
+
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _normalize_post(post: dict[str, Any]) -> dict[str, Any]:
+def _normalize_post(post: dict[str, Any], priority_bloggers: set[str]) -> dict[str, Any]:
     normalized = dict(post)
+    normalized["blog_id"] = normalized.get("blog_id") or normalized.get("display_name") or normalized.get("guid") or ""
     normalized["classification"] = normalized.get("classification") or normalized.get("group_name") or "미분류"
     normalized["group_name"] = normalized.get("group_name") or "미분류"
     normalized["display_name"] = normalized.get("display_name") or normalized.get("blog_id") or "알 수 없음"
     normalized["blog_title"] = normalized.get("blog_title") or normalized["display_name"]
     normalized["tags"] = list(normalized.get("tags") or [])
-    normalized["is_priority"] = bool(normalized.get("is_priority"))
+    normalized["is_priority"] = normalized.get("blog_id") in priority_bloggers or bool(normalized.get("is_priority"))
     normalized["summary"] = (normalized.get("summary") or "").strip()
     normalized["title"] = (normalized.get("title") or "").strip()
     normalized["search_text"] = " ".join(
@@ -45,29 +50,46 @@ def load_digest_payloads(output_dir: Path) -> list[dict[str, Any]]:
     return payloads
 
 
-def merge_archive(existing_posts: list[dict[str, Any]], payloads: list[dict[str, Any]], max_posts: int = 2000) -> list[dict[str, Any]]:
+def merge_archive(
+    existing_posts: list[dict[str, Any]],
+    payloads: list[dict[str, Any]],
+    priority_bloggers: set[str],
+    max_posts: int = 2000,
+) -> list[dict[str, Any]]:
     merged: dict[str, dict[str, Any]] = {}
     for post in existing_posts:
-        normalized = _normalize_post(post)
+        normalized = _normalize_post(post, priority_bloggers=priority_bloggers)
         merged[normalized["guid"]] = normalized
 
     for payload in payloads:
         for post in payload.get("posts", []):
-            normalized = _normalize_post(post)
+            normalized = _normalize_post(post, priority_bloggers=priority_bloggers)
             merged[normalized["guid"]] = normalized
 
     posts = sorted(merged.values(), key=lambda item: item["published_at"], reverse=True)
     return posts[:max_posts]
 
 
-def build_archive_payload(posts: list[dict[str, Any]], generated_at: datetime) -> dict[str, Any]:
+def build_archive_payload(posts: list[dict[str, Any]], generated_at: datetime, priority_bloggers: set[str]) -> dict[str, Any]:
     classifications = Counter(post["classification"] for post in posts)
     authors = Counter(post["display_name"] for post in posts)
     groups = Counter(post["group_name"] for post in posts)
+    priority_index = []
+    for blog_id in sorted(priority_bloggers):
+        sample = next((post for post in posts if post["blog_id"] == blog_id), None)
+        priority_index.append(
+            {
+                "blog_id": blog_id,
+                "display_name": sample["display_name"] if sample else blog_id,
+                "blog_title": sample["blog_title"] if sample else "",
+                "post_count": sum(1 for post in posts if post["blog_id"] == blog_id),
+            }
+        )
     return {
         "generated_at": generated_at.isoformat(),
         "post_count": len(posts),
         "priority_post_count": sum(1 for post in posts if post["is_priority"]),
+        "priority_bloggers": priority_index,
         "classifications": dict(classifications.most_common()),
         "authors": dict(authors.most_common(50)),
         "groups": dict(groups.most_common()),
@@ -107,7 +129,7 @@ def render_index_html() -> str:
       min-height: 100vh;
     }
     .shell {
-      width: min(1180px, calc(100% - 32px));
+      width: min(1280px, calc(100% - 32px));
       margin: 0 auto;
       padding: 32px 0 56px;
     }
@@ -144,15 +166,13 @@ def render_index_html() -> str:
       flex-wrap: wrap;
       gap: 10px;
     }
-    .metric, .panel, .post {
+    .metric, .panel, .post, .section-card {
       border: 1px solid var(--line);
       background: var(--surface);
       border-radius: 22px;
       box-shadow: var(--shadow);
     }
-    .metric {
-      padding: 18px 20px;
-    }
+    .metric { padding: 18px 20px; }
     .metric label {
       display: block;
       color: var(--muted);
@@ -180,9 +200,7 @@ def render_index_html() -> str:
       font-size: 1rem;
       letter-spacing: -0.02em;
     }
-    .field {
-      margin-bottom: 14px;
-    }
+    .field { margin-bottom: 14px; }
     .field label {
       display: block;
       margin-bottom: 6px;
@@ -219,13 +237,7 @@ def render_index_html() -> str:
       flex-direction: column;
       gap: 14px;
     }
-    .section-card {
-      border: 1px solid var(--line);
-      background: var(--surface);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      padding: 18px;
-    }
+    .section-card { padding: 18px; }
     .section-head {
       display: flex;
       justify-content: space-between;
@@ -238,9 +250,9 @@ def render_index_html() -> str:
       font-size: 1rem;
       letter-spacing: -0.02em;
     }
-    .section-meta {
+    .section-meta, .results-meta {
       color: var(--muted);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
     }
     .tabs {
       display: flex;
@@ -270,10 +282,6 @@ def render_index_html() -> str:
       align-items: end;
       padding: 8px 4px;
     }
-    .results-meta {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
     .posts {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -301,13 +309,13 @@ def render_index_html() -> str:
     }
     .post h3 {
       margin: 0 0 10px;
-      font-size: 1.14rem;
+      font-size: 1.05rem;
       line-height: 1.45;
       letter-spacing: -0.02em;
     }
     .post p {
       margin: 0;
-      line-height: 1.65;
+      line-height: 1.6;
       color: #374151;
       display: -webkit-box;
       -webkit-line-clamp: 5;
@@ -320,12 +328,12 @@ def render_index_html() -> str:
       flex-wrap: wrap;
       gap: 10px 14px;
       color: var(--muted);
-      font-size: 0.86rem;
+      font-size: 0.82rem;
     }
     .published-at {
       margin: 0 0 10px;
       color: var(--accent);
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 700;
       letter-spacing: -0.01em;
     }
@@ -369,7 +377,7 @@ def render_index_html() -> str:
     @media (max-width: 920px) {
       .layout { grid-template-columns: 1fr; }
       .panel { position: static; }
-      .shell { width: min(100% - 20px, 1180px); padding-top: 20px; }
+      .shell { width: min(100% - 20px, 1280px); padding-top: 20px; }
       .hero { padding: 22px; }
       .posts { grid-template-columns: 1fr; }
     }
@@ -379,7 +387,7 @@ def render_index_html() -> str:
   <div class="shell">
     <section class="hero">
       <h1>Research Briefing Archive</h1>
-      <p class="lede">네이버 블로그 트래커의 누적 브리핑 아카이브입니다. 분류, 작성자, 소스 그룹 필터와 전체 텍스트 검색으로 필요한 신호만 빠르게 추릴 수 있습니다.</p>
+      <p class="lede">네이버 블로그 트래커의 누적 브리핑 아카이브입니다. 우선 블로거, 날짜별 새 글, 전체 탐색을 각각 분리해 바로 볼 수 있게 구성했습니다.</p>
       <div class="metrics">
         <article class="metric"><label>누적 포스트</label><strong id="metric-posts">-</strong></article>
         <article class="metric"><label>활성 분류 수</label><strong id="metric-classes">-</strong></article>
@@ -427,7 +435,7 @@ def render_index_html() -> str:
       </aside>
 
       <main class="results">
-        <section class="section-card priority-board">
+        <section class="section-card priority-board" id="priority-board">
           <div class="section-head">
             <div>
               <h2>우선 블로거 전용 보드</h2>
@@ -437,7 +445,17 @@ def render_index_html() -> str:
           <div class="posts" id="priority-posts"></div>
         </section>
 
-        <section class="section-card">
+        <section class="section-card" id="priority-roster-section">
+          <div class="section-head">
+            <div>
+              <h2>우선 블로거 목록</h2>
+              <div class="section-meta" id="priority-roster-meta">불러오는 중...</div>
+            </div>
+          </div>
+          <div class="chips" id="priority-roster"></div>
+        </section>
+
+        <section class="section-card" id="date-board">
           <div class="section-head">
             <div>
               <h2>날짜별 새 글</h2>
@@ -450,7 +468,7 @@ def render_index_html() -> str:
 
         <div class="results-head">
           <div>
-            <h2>결과</h2>
+            <h2>전체 탐색</h2>
             <div class="results-meta" id="results-meta">불러오는 중...</div>
           </div>
         </div>
@@ -460,15 +478,14 @@ def render_index_html() -> str:
   </div>
 
   <script>
-    const state = {
-      archive: null,
-      filtered: [],
-    };
-
+    const state = { archive: null, filtered: [] };
+    const ui = { activeDateKey: "" };
     const els = {
       posts: document.getElementById("posts"),
       priorityPosts: document.getElementById("priority-posts"),
       priorityMeta: document.getElementById("priority-meta"),
+      priorityRoster: document.getElementById("priority-roster"),
+      priorityRosterMeta: document.getElementById("priority-roster-meta"),
       tabPosts: document.getElementById("tab-posts"),
       tabMeta: document.getElementById("tab-meta"),
       dateTabs: document.getElementById("date-tabs"),
@@ -485,9 +502,6 @@ def render_index_html() -> str:
       metricClasses: document.getElementById("metric-classes"),
       metricAuthors: document.getElementById("metric-authors"),
       metricUpdated: document.getElementById("metric-updated"),
-    };
-    const ui = {
-      activeDateKey: "",
     };
 
     function uniqueSorted(values) {
@@ -506,43 +520,25 @@ def render_index_html() -> str:
     function formatDate(value) {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return value;
-      return new Intl.DateTimeFormat("ko-KR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(date);
+      return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(date);
     }
 
     function formatPublishedAt(value) {
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return value;
       const weekday = new Intl.DateTimeFormat("ko-KR", { weekday: "short" }).format(date);
-      const datePart = new Intl.DateTimeFormat("ko-KR", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).format(date);
-      const timePart = new Intl.DateTimeFormat("ko-KR", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }).format(date);
+      const datePart = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(date);
+      const timePart = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true }).format(date);
       return `${datePart} (${weekday}) ${timePart}`;
     }
 
     function escapeHtml(value) {
-      return value
+      return String(value)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
-    }
-
-    function renderTopClasses() {
-      const items = Object.entries(state.archive.classifications || {}).slice(0, 8);
-      els.topClasses.innerHTML = items
-        .map(([name, count]) => `<span class="chip">${escapeHtml(name)} <strong>${count}</strong></span>`)
-        .join("");
     }
 
     function localDateKey(value) {
@@ -554,45 +550,43 @@ def render_index_html() -> str:
       return `${year}-${month}-${day}`;
     }
 
-    function buildQuickLink(label, params) {
+    function renderTopClasses() {
+      const items = Object.entries(state.archive.classifications || {}).slice(0, 8);
+      els.topClasses.innerHTML = items
+        .map(([name, count]) => `<span class="chip">${escapeHtml(name)} <strong>${count}</strong></span>`)
+        .join("");
+    }
+
+    function buildQuickLink(label, params, hash = "") {
       const url = new URL(window.location.href);
       url.search = "";
       Object.entries(params).forEach(([key, value]) => {
-        if (value) {
-          url.searchParams.set(key, value);
-        }
+        if (value) url.searchParams.set(key, value);
       });
-      return `<a class="quick-link" href="${escapeHtml(url.pathname + url.search)}">${escapeHtml(label)}</a>`;
+      return `<a class="quick-link" href="${escapeHtml(url.pathname + url.search + hash)}">${escapeHtml(label)}</a>`;
+    }
+
+    function getDateBuckets() {
+      const generatedAt = new Date(state.archive.generated_at);
+      return [
+        { label: "오늘", offset: 0 },
+        { label: "어제", offset: 1 },
+        { label: "그제", offset: 2 },
+        { label: "나흘 전", offset: 4 },
+      ].map((item) => {
+        const date = new Date(generatedAt);
+        date.setDate(date.getDate() - item.offset);
+        return { ...item, key: localDateKey(date) };
+      });
     }
 
     function renderQuickLinks() {
-      const generatedAt = new Date(state.archive.generated_at);
-      const offsets = [
-        ["오늘 새 글", 0],
-        ["어제 새 글", 1],
-        ["그제 새 글", 2],
-        ["나흘 전 새 글", 4],
-      ];
-      const links = offsets.map(([label, offset]) => {
-        const date = new Date(generatedAt);
-        date.setDate(date.getDate() - offset);
-        return buildQuickLink(label, { date: localDateKey(date) });
+      const links = getDateBuckets().map((bucket) => {
+        return buildQuickLink(`${bucket.label} 새 글`, { date: bucket.key, section: "date" }, "#date-board");
       });
-      links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true" }));
+      links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
+      links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
       els.quickLinks.innerHTML = links.join("");
-    }
-
-    function applyUrlFilters() {
-      const params = new URLSearchParams(window.location.search);
-      const date = params.get("date") || "";
-      const priority = params.get("priority") || "";
-      if (date) {
-        ui.activeDateKey = date;
-        els.search.value = date;
-      }
-      if (priority === "true") {
-        els.priorityOnly.value = "true";
-      }
     }
 
     function renderPostCard(post) {
@@ -626,54 +620,59 @@ def render_index_html() -> str:
       target.innerHTML = posts.map((post) => renderPostCard(post)).join("");
     }
 
-    function renderPosts() {
-      const posts = state.filtered;
-      els.resultsMeta.textContent = `${posts.length}건 표시 / 누적 ${state.archive.posts.length}건`;
-      renderPostGrid(els.posts, posts, "조건에 맞는 결과가 없습니다.");
-    }
-
-    function getDateBuckets() {
-      const generatedAt = new Date(state.archive.generated_at);
-      return [
-        { label: "오늘", offset: 0 },
-        { label: "어제", offset: 1 },
-        { label: "그제", offset: 2 },
-        { label: "나흘 전", offset: 4 },
-      ].map((item) => {
-        const date = new Date(generatedAt);
-        date.setDate(date.getDate() - item.offset);
-        return { ...item, key: localDateKey(date) };
-      });
-    }
-
     function renderPriorityBoard() {
-      const priorityPosts = state.archive.posts.filter((post) => post.is_priority).slice(0, 9);
+      const priorityPosts = state.archive.posts.filter((post) => post.is_priority).slice(0, 12);
       els.priorityMeta.textContent = `우선 블로거 글 ${priorityPosts.length}건`;
       renderPostGrid(els.priorityPosts, priorityPosts, "우선 블로거 글이 없습니다.");
     }
 
+    function renderPriorityRoster() {
+      const bloggers = state.archive.priority_bloggers || [];
+      els.priorityRosterMeta.textContent = `우선 블로거 ${bloggers.length}명`;
+      if (!bloggers.length) {
+        els.priorityRoster.innerHTML = '<span class="chip">우선 블로거가 없습니다.</span>';
+        return;
+      }
+      els.priorityRoster.innerHTML = bloggers.map((blogger) => {
+        const label = blogger.display_name && blogger.display_name !== blogger.blog_id
+          ? `${blogger.display_name} (${blogger.blog_id})`
+          : blogger.blog_id;
+        return `<span class="chip">${escapeHtml(label)} <strong>${blogger.post_count}</strong></span>`;
+      }).join("");
+    }
+
     function renderDateTabs() {
       const buckets = getDateBuckets();
-      if (!ui.activeDateKey && buckets.length) {
-        ui.activeDateKey = buckets[0].key;
-      }
+      if (!ui.activeDateKey && buckets.length) ui.activeDateKey = buckets[0].key;
+      const selected = buckets.find((bucket) => bucket.key === ui.activeDateKey) || buckets[0];
       els.dateTabs.innerHTML = buckets.map((bucket) => {
         const count = state.archive.posts.filter((post) => localDateKey(post.published_at) === bucket.key).length;
-        const active = bucket.key === ui.activeDateKey ? " active" : "";
+        const active = bucket.key === selected.key ? " active" : "";
         return `<button class="tab-btn${active}" type="button" data-date-key="${bucket.key}">${bucket.label} ${count}</button>`;
       }).join("");
-
-      const selected = buckets.find((bucket) => bucket.key === ui.activeDateKey) || buckets[0];
       const tabPosts = state.archive.posts.filter((post) => localDateKey(post.published_at) === selected.key);
       els.tabMeta.textContent = `${selected.label} 기준 ${tabPosts.length}건`;
       renderPostGrid(els.tabPosts, tabPosts, `${selected.label} 글이 없습니다.`);
-
       els.dateTabs.querySelectorAll("[data-date-key]").forEach((button) => {
         button.addEventListener("click", () => {
           ui.activeDateKey = button.getAttribute("data-date-key") || "";
           renderDateTabs();
         });
       });
+    }
+
+    function applyUrlFilters() {
+      const params = new URLSearchParams(window.location.search);
+      const date = params.get("date") || "";
+      const priority = params.get("priority") || "";
+      const section = params.get("section") || "";
+      if (date) {
+        ui.activeDateKey = date;
+        els.search.value = date;
+      }
+      if (priority === "true" || section === "priority") {
+        els.priorityOnly.value = "true";
+      }
     }
 
     function applyFilters() {
@@ -683,7 +682,6 @@ def render_index_html() -> str:
       const author = els.author.value;
       const hasContent = els.hasContent.value;
       const priorityOnly = els.priorityOnly.value;
-
       state.filtered = state.archive.posts.filter((post) => {
         if (classification && post.classification !== classification) return false;
         if (group && post.group_name !== group) return false;
@@ -691,36 +689,32 @@ def render_index_html() -> str:
         if (hasContent && String(post.has_content) !== hasContent) return false;
         if (priorityOnly === "true" && !post.is_priority) return false;
         if (search) {
-          const searchKey = search.toLowerCase();
           const dateKey = localDateKey(post.published_at);
-          if (!post.search_text.includes(searchKey) && dateKey !== searchKey) return false;
+          if (!post.search_text.includes(search) && dateKey !== search) return false;
         }
         return true;
       });
-      renderPosts();
+      els.resultsMeta.textContent = `${state.filtered.length}건 표시 / 누적 ${state.archive.posts.length}건`;
+      renderPostGrid(els.posts, state.filtered, "조건에 맞는 결과가 없습니다.");
     }
 
     async function boot() {
       const response = await fetch("./data/archive.json");
       state.archive = await response.json();
-
       fillSelect(els.classification, uniqueSorted(state.archive.posts.map((post) => post.classification)));
       fillSelect(els.group, uniqueSorted(state.archive.posts.map((post) => post.group_name)));
       fillSelect(els.author, uniqueSorted(state.archive.posts.map((post) => post.display_name)));
-
       els.metricPosts.textContent = state.archive.post_count.toLocaleString("ko-KR");
       els.metricClasses.textContent = Object.keys(state.archive.classifications || {}).length.toLocaleString("ko-KR");
       els.metricAuthors.textContent = Object.keys(state.archive.authors || {}).length.toLocaleString("ko-KR");
       els.metricUpdated.textContent = formatDate(state.archive.generated_at);
-
       renderTopClasses();
       renderQuickLinks();
       renderPriorityBoard();
-      renderDateTabs();
-      state.filtered = [...state.archive.posts];
+      renderPriorityRoster();
       applyUrlFilters();
-      renderPosts();
-
+      renderDateTabs();
+      applyFilters();
       [els.classification, els.group, els.author, els.hasContent, els.priorityOnly].forEach((el) => el.addEventListener("change", applyFilters));
       els.search.addEventListener("input", applyFilters);
     }
@@ -742,12 +736,13 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     site_data_dir = site_dir / "data"
     site_data_dir.mkdir(parents=True, exist_ok=True)
 
+    priority_bloggers = load_priority_bloggers(ROOT / "config" / "priority_bloggers.txt")
     archive_path = archive_dir / "archive.json"
     existing_posts = _load_json(archive_path).get("posts", []) if archive_path.exists() else []
     payloads = load_digest_payloads(output_dir)
     generated_at = datetime.now().astimezone()
-    merged_posts = merge_archive(existing_posts, payloads, max_posts=max_posts)
-    archive_payload = build_archive_payload(merged_posts, generated_at=generated_at)
+    merged_posts = merge_archive(existing_posts, payloads, priority_bloggers=priority_bloggers, max_posts=max_posts)
+    archive_payload = build_archive_payload(merged_posts, generated_at=generated_at, priority_bloggers=priority_bloggers)
 
     archive_path.write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "archive.json").write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
