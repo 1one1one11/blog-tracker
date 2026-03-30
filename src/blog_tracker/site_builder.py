@@ -219,6 +219,50 @@ def render_index_html() -> str:
       flex-direction: column;
       gap: 14px;
     }
+    .section-card {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .section-head h2, .section-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .section-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
     .results-head {
       display: flex;
       justify-content: space-between;
@@ -232,7 +276,7 @@ def render_index_html() -> str:
     }
     .posts {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
     }
     .post {
@@ -310,10 +354,17 @@ def render_index_html() -> str:
       background: rgba(14, 116, 144, 0.12);
       color: #0f5f73;
     }
+    .priority-board {
+      border: 1px solid rgba(14, 116, 144, 0.16);
+      background: linear-gradient(180deg, rgba(240, 249, 255, 0.88), rgba(255,250,243,0.96));
+    }
     .empty {
       padding: 28px;
       text-align: center;
       color: var(--muted);
+    }
+    @media (max-width: 1180px) {
+      .posts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 920px) {
       .layout { grid-template-columns: 1fr; }
@@ -376,6 +427,27 @@ def render_index_html() -> str:
       </aside>
 
       <main class="results">
+        <section class="section-card priority-board">
+          <div class="section-head">
+            <div>
+              <h2>우선 블로거 전용 보드</h2>
+              <div class="section-meta" id="priority-meta">불러오는 중...</div>
+            </div>
+          </div>
+          <div class="posts" id="priority-posts"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h2>날짜별 새 글</h2>
+              <div class="section-meta" id="tab-meta">불러오는 중...</div>
+            </div>
+          </div>
+          <div class="tabs" id="date-tabs"></div>
+          <div class="posts" id="tab-posts"></div>
+        </section>
+
         <div class="results-head">
           <div>
             <h2>결과</h2>
@@ -395,6 +467,11 @@ def render_index_html() -> str:
 
     const els = {
       posts: document.getElementById("posts"),
+      priorityPosts: document.getElementById("priority-posts"),
+      priorityMeta: document.getElementById("priority-meta"),
+      tabPosts: document.getElementById("tab-posts"),
+      tabMeta: document.getElementById("tab-meta"),
+      dateTabs: document.getElementById("date-tabs"),
       resultsMeta: document.getElementById("results-meta"),
       classification: document.getElementById("classification"),
       group: document.getElementById("group"),
@@ -408,6 +485,9 @@ def render_index_html() -> str:
       metricClasses: document.getElementById("metric-classes"),
       metricAuthors: document.getElementById("metric-authors"),
       metricUpdated: document.getElementById("metric-updated"),
+    };
+    const ui = {
+      activeDateKey: "",
     };
 
     function uniqueSorted(values) {
@@ -507,6 +587,7 @@ def render_index_html() -> str:
       const date = params.get("date") || "";
       const priority = params.get("priority") || "";
       if (date) {
+        ui.activeDateKey = date;
         els.search.value = date;
       }
       if (priority === "true") {
@@ -514,15 +595,8 @@ def render_index_html() -> str:
       }
     }
 
-    function renderPosts() {
-      const posts = state.filtered;
-      els.resultsMeta.textContent = `${posts.length}건 표시 / 누적 ${state.archive.posts.length}건`;
-      if (!posts.length) {
-        els.posts.innerHTML = '<div class="post empty">조건에 맞는 결과가 없습니다.</div>';
-        return;
-      }
-
-      els.posts.innerHTML = posts.map((post) => `
+    function renderPostCard(post) {
+      return `
         <article class="post">
           <div class="post-top">
             <span class="badge">${escapeHtml(post.classification)}</span>
@@ -541,7 +615,65 @@ def render_index_html() -> str:
             ${post.tags?.length ? `<span>태그: ${escapeHtml(post.tags.join(", "))}</span>` : ""}
           </div>
         </article>
-      `).join("");
+      `;
+    }
+
+    function renderPostGrid(target, posts, emptyText) {
+      if (!posts.length) {
+        target.innerHTML = `<div class="post empty">${emptyText}</div>`;
+        return;
+      }
+      target.innerHTML = posts.map((post) => renderPostCard(post)).join("");
+    }
+
+    function renderPosts() {
+      const posts = state.filtered;
+      els.resultsMeta.textContent = `${posts.length}건 표시 / 누적 ${state.archive.posts.length}건`;
+      renderPostGrid(els.posts, posts, "조건에 맞는 결과가 없습니다.");
+    }
+
+    function getDateBuckets() {
+      const generatedAt = new Date(state.archive.generated_at);
+      return [
+        { label: "오늘", offset: 0 },
+        { label: "어제", offset: 1 },
+        { label: "그제", offset: 2 },
+        { label: "나흘 전", offset: 4 },
+      ].map((item) => {
+        const date = new Date(generatedAt);
+        date.setDate(date.getDate() - item.offset);
+        return { ...item, key: localDateKey(date) };
+      });
+    }
+
+    function renderPriorityBoard() {
+      const priorityPosts = state.archive.posts.filter((post) => post.is_priority).slice(0, 9);
+      els.priorityMeta.textContent = `우선 블로거 글 ${priorityPosts.length}건`;
+      renderPostGrid(els.priorityPosts, priorityPosts, "우선 블로거 글이 없습니다.");
+    }
+
+    function renderDateTabs() {
+      const buckets = getDateBuckets();
+      if (!ui.activeDateKey && buckets.length) {
+        ui.activeDateKey = buckets[0].key;
+      }
+      els.dateTabs.innerHTML = buckets.map((bucket) => {
+        const count = state.archive.posts.filter((post) => localDateKey(post.published_at) === bucket.key).length;
+        const active = bucket.key === ui.activeDateKey ? " active" : "";
+        return `<button class="tab-btn${active}" type="button" data-date-key="${bucket.key}">${bucket.label} ${count}</button>`;
+      }).join("");
+
+      const selected = buckets.find((bucket) => bucket.key === ui.activeDateKey) || buckets[0];
+      const tabPosts = state.archive.posts.filter((post) => localDateKey(post.published_at) === selected.key);
+      els.tabMeta.textContent = `${selected.label} 기준 ${tabPosts.length}건`;
+      renderPostGrid(els.tabPosts, tabPosts, `${selected.label} 글이 없습니다.`);
+
+      els.dateTabs.querySelectorAll("[data-date-key]").forEach((button) => {
+        button.addEventListener("click", () => {
+          ui.activeDateKey = button.getAttribute("data-date-key") || "";
+          renderDateTabs();
+        });
+      });
     }
 
     function applyFilters() {
@@ -583,6 +715,8 @@ def render_index_html() -> str:
 
       renderTopClasses();
       renderQuickLinks();
+      renderPriorityBoard();
+      renderDateTabs();
       state.filtered = [...state.archive.posts];
       applyUrlFilters();
       renderPosts();

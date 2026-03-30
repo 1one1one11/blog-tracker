@@ -92,3 +92,6 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
     assert (site_dir / "index.html").exists()
     assert (site_dir / "data" / "archive.json").exists()
     assert json.loads((site_dir / "data" / "archive.json").read_text(encoding="utf-8"))["posts"][0]["guid"] == "post-1"
+    html = (site_dir / "index.html").read_text(encoding="utf-8")
+    assert "우선 블로거 전용 보드" in html
+    assert "오늘" in html
