@@ -87,7 +87,7 @@ python scripts/import_followings.py data/followings_raw.txt
 
 현재 스케줄:
 
-- 매일 한국시간 오전 7시 실행
+- 매시 정각 실행
 
 GitHub Secrets:
 
