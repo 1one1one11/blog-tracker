@@ -76,7 +76,7 @@ python scripts/import_followings.py data/followings_raw.txt
 - `GEMINI_API_KEY`: 선택, Gemini 요약용
 - `GEMINI_MODEL`: 선택, 예: `gemini-2.5-flash`
 - `BLOG_TRACKER_TIMEZONE`: 기본 `Asia/Seoul`
-- `BLOG_TRACKER_DAYS_BACK`: 최근 며칠 글까지 볼지, 기본 `3`
+- `BLOG_TRACKER_DAYS_BACK`: 캘린더 날짜 기준 며칠 전까지 포함할지, 기본 `4`
 - `NAVER_FOLLOWINGS_URL`: 기본 팔로잉 동기화 URL
 
 `GEMINI_*` 또는 `OPENAI_*` 가 있으면 AI 요약을 사용하고, 둘 다 없으면 RSS 설명 기반 요약으로 동작합니다.
@@ -132,7 +132,7 @@ GitHub Actions는 트래커 실행 후 정적 사이트도 함께 생성해 GitH
 포함 기능:
 
 - 누적 digest 아카이브
-- 최근 3일 기준 수집 결과 누적 보존
+- 오늘부터 나흘 전까지 발행일 기준으로 수집 결과 누적 보존
 - 분류 / 소스 그룹 / 작성자 필터
 - 제목 / 요약 / 태그 / 작성자 기준 검색
 - 본문 추출 성공 여부 확인

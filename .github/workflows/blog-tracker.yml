@@ -60,7 +60,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
           BLOG_TRACKER_TIMEZONE: Asia/Seoul
-          BLOG_TRACKER_DAYS_BACK: "3"
+          BLOG_TRACKER_DAYS_BACK: "4"
           NAVER_FOLLOWINGS_URL: "https://section.blog.naver.com/connect/ViewMoreFollowings.naver?blogId=neo-anderson&widgetSeq=1306670"
         run: python scripts/run_tracker.py
 

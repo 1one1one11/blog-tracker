@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from html import unescape
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
@@ -57,7 +58,7 @@ def fetch_post_content(link: str) -> str:
     return ""
 
 
-def fetch_recent_posts(source: BlogSource, days_back: int) -> list[BlogPost]:
+def fetch_recent_posts(source: BlogSource, days_back: int, timezone_name: str = "Asia/Seoul") -> list[BlogPost]:
     try:
         with httpx.Client(timeout=12, headers={"User-Agent": "Mozilla/5.0"}) as client:
             response = client.get(source.resolved_rss_url)
@@ -70,14 +71,16 @@ def fetch_recent_posts(source: BlogSource, days_back: int) -> list[BlogPost]:
     if channel is None:
         return []
 
-    cutoff = datetime.now().astimezone() - timedelta(days=days_back)
+    local_tz = ZoneInfo(timezone_name)
+    now_local = datetime.now(local_tz)
+    cutoff = (now_local - timedelta(days=days_back)).replace(hour=0, minute=0, second=0, microsecond=0)
     posts: list[BlogPost] = []
     for item in channel.findall("item"):
         raw_pub_date = item.findtext("pubDate", default="")
         if not raw_pub_date:
             continue
         published_at = parse_pub_date(raw_pub_date)
-        if published_at < cutoff:
+        if published_at.astimezone(local_tz) < cutoff:
             continue
 
         description_text = clean_html_text(item.findtext("description", default=""))
