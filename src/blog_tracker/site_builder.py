@@ -265,6 +265,13 @@ def render_index_html() -> str:
       color: var(--muted);
       font-size: 0.86rem;
     }
+    .published-at {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
     .post a {
       color: var(--accent);
       font-weight: 700;
@@ -381,6 +388,23 @@ def render_index_html() -> str:
       }).format(date);
     }
 
+    function formatPublishedAt(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      const weekday = new Intl.DateTimeFormat("ko-KR", { weekday: "short" }).format(date);
+      const datePart = new Intl.DateTimeFormat("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(date);
+      const timePart = new Intl.DateTimeFormat("ko-KR", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }).format(date);
+      return `${datePart} (${weekday}) ${timePart}`;
+    }
+
     function escapeHtml(value) {
       return value
         .replaceAll("&", "&amp;")
@@ -412,6 +436,7 @@ def render_index_html() -> str:
             <span class="chip">${escapeHtml(post.group_name)}</span>
             ${post.has_content ? '<span class="chip">본문 추출</span>' : '<span class="chip">RSS 요약 fallback</span>'}
           </div>
+          <div class="published-at">게시 시각: ${escapeHtml(formatPublishedAt(post.published_at))}</div>
           <h3><a href="${post.link}" target="_blank" rel="noreferrer">${escapeHtml(post.title || "(제목 없음)")}</a></h3>
           <p>${escapeHtml(post.summary || "요약 없음")}</p>
           <div class="meta">
