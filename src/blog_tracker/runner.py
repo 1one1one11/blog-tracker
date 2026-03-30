@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
+import json
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict
 from datetime import datetime
 
 from blog_tracker.classifier import classify_post
@@ -27,6 +29,40 @@ def enrich_post(post):
     post.content_text = fetch_post_content(post.link)
     post.classification = classify_post(post)
     return post
+
+
+def export_dashboard_json(settings, posts, priority_bloggers: set[str], generated_at: datetime) -> None:
+    docs_data_dir = settings.root_dir / "docs" / "data"
+    docs_data_dir.mkdir(parents=True, exist_ok=True)
+
+    classification_counts = Counter(post.classification or "미분류" for post in posts)
+    payload = {
+        "generated_at": generated_at.isoformat(),
+        "total_posts": len(posts),
+        "priority_post_count": sum(1 for post in posts if post.blog_id in priority_bloggers),
+        "classification_counts": dict(sorted(classification_counts.items())),
+        "priority_bloggers": sorted(priority_bloggers),
+        "posts": [
+            {
+                "blog_id": post.blog_id,
+                "display_name": post.display_name,
+                "blog_title": post.blog_title,
+                "group_name": post.group_name,
+                "title": post.title,
+                "link": post.link,
+                "guid": post.guid,
+                "published_at": post.published_at.isoformat(),
+                "category": post.category,
+                "tags": post.tags,
+                "summary": post.summary,
+                "classification": post.classification,
+                "is_priority": post.blog_id in priority_bloggers,
+            }
+            for post in posts
+        ],
+    }
+    for path in [settings.output_dir / "latest.json", docs_data_dir / "latest.json"]:
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main() -> int:
@@ -70,9 +106,11 @@ def main() -> int:
     enriched_posts = summarizer.summarize_all(enriched_posts)
     messages = build_digest_messages(enriched_posts, priority_bloggers)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    generated_at = datetime.now().astimezone()
+    timestamp = generated_at.strftime("%Y%m%d_%H%M%S")
     digest_path = settings.output_dir / f"digest_{timestamp}.md"
     digest_path.write_text("\n\n---\n\n".join(messages), encoding="utf-8")
+    export_dashboard_json(settings, enriched_posts, priority_bloggers, generated_at)
 
     print(format_console_report(enriched_posts))
     print(f"우선 블로거: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}건")

@@ -33,7 +33,7 @@ def build_digest_messages(posts: list[BlogPost], priority_bloggers: set[str]) ->
         blocks.extend(_render_post(post) for post in regular_posts)
 
     messages: list[str] = []
-    current = "<b>네이버 블로그 브리핑</b>\n"
+    current = "<b>네이버 블로그 브리핑</b>"
     for block in blocks:
         candidate = current + "\n\n" + block if current.strip() else block
         if len(candidate) > MAX_MESSAGE_LENGTH and current.strip():
@@ -49,6 +49,7 @@ def build_digest_messages(posts: list[BlogPost], priority_bloggers: set[str]) ->
 def send_digest(bot_token: str, chat_id: str, messages: list[str]) -> dict:
     if not bot_token or not chat_id:
         return {"ok": False, "message": "텔레그램 설정이 비어 있어 발송을 건너뜁니다."}
+
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     with httpx.Client(timeout=20) as client:
         for message in messages:

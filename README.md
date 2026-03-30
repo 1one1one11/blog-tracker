@@ -97,6 +97,17 @@ GitHub Secrets:
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
 
+## GitHub Pages
+
+정적 대시보드는 `docs/` 아래에 있고, 워크플로가 실행될 때 `docs/data/latest.json` 이 갱신됩니다.
+
+페이지 구성:
+
+- 상단 요약 통계
+- 우선 블로거 섹션
+- 전체 새 글 목록
+- 분류 필터와 검색
+
 ## 로컬 테스트
 
 ```bash

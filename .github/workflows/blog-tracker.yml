@@ -5,8 +5,15 @@ on:
   schedule:
     - cron: "0 22 * * *"
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   run:
+    environment:
+      name: github-pages
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -53,9 +60,26 @@ jobs:
           name: blog-digest
           path: output/
 
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
       - name: Save tracker state
         if: always()
         uses: actions/cache/save@v4
         with:
           path: data/runtime/
           key: blog-state-${{ github.run_id }}
+
+  deploy:
+    needs: run
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

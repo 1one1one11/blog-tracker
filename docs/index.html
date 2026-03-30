@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blog Tracker Dashboard</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">Naver Blog Tracker</p>
+      <h1>블로그 브리핑 대시보드</h1>
+      <p class="subtitle">우선 블로거와 전체 새 글을 한 번에 확인하는 정적 페이지입니다.</p>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>우선 블로거</h2>
+        <span id="priority-count" class="badge"></span>
+      </div>
+      <div id="priority-posts" class="post-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>전체 새 글</h2>
+        <input id="search-input" class="search" type="search" placeholder="제목, 블로거, 분류 검색" />
+      </div>
+      <div id="filters" class="filters"></div>
+      <div id="all-posts" class="post-grid"></div>
+    </section>
+  </main>
+
+  <template id="post-template">
+    <article class="post-card">
+      <div class="post-top">
+        <span class="chip chip-classification"></span>
+        <span class="chip chip-priority">우선</span>
+      </div>
+      <h3 class="post-title"></h3>
+      <p class="post-meta"></p>
+      <p class="post-summary"></p>
+      <a class="post-link" target="_blank" rel="noreferrer">원문 보기</a>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>
