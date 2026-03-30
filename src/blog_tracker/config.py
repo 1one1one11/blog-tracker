@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     root_dir: Path
     blogs_csv_path: Path
+    priority_bloggers_path: Path
     state_path: Path
     output_dir: Path
     timezone: str
@@ -37,6 +38,7 @@ def load_settings() -> Settings:
     return Settings(
         root_dir=ROOT,
         blogs_csv_path=ROOT / "config" / "blogs.csv",
+        priority_bloggers_path=ROOT / "config" / "priority_bloggers.txt",
         state_path=runtime_dir / "state.json",
         output_dir=output_dir,
         timezone=os.getenv("BLOG_TRACKER_TIMEZONE", "Asia/Seoul"),
@@ -69,3 +71,13 @@ def load_blog_sources(csv_path: Path) -> list[BlogSource]:
                 )
             )
     return [row for row in rows if row.enabled]
+
+
+def load_priority_bloggers(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }

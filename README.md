@@ -26,6 +26,7 @@ python scripts/run_tracker.py --dry-run
 ## 설정 파일
 
 블로그 목록은 `config/blogs.csv` 에서 관리합니다.
+우선 블로거 목록은 `config/priority_bloggers.txt` 에서 관리합니다.
 
 컬럼:
 

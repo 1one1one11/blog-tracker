@@ -6,11 +6,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from blog_tracker.classifier import classify_post
-from blog_tracker.config import load_blog_sources, load_settings
+from blog_tracker.config import load_blog_sources, load_priority_bloggers, load_settings
 from blog_tracker.rss import fetch_post_content, fetch_recent_posts
 from blog_tracker.state import load_seen_guids, save_seen_guids
 from blog_tracker.summarizer import Summarizer
-from blog_tracker.telegram import build_digest, send_digest
+from blog_tracker.telegram import build_digest_messages, send_digest
 
 
 def format_console_report(posts) -> str:
@@ -37,6 +37,7 @@ def main() -> int:
 
     settings = load_settings()
     sources = load_blog_sources(settings.blogs_csv_path)
+    priority_bloggers = load_priority_bloggers(settings.priority_bloggers_path)
     seen_guids = load_seen_guids(settings.state_path)
     days_back = args.days_back or settings.days_back
 
@@ -57,7 +58,9 @@ def main() -> int:
         for future in as_completed(futures):
             enriched_posts.append(future.result())
 
-    enriched_posts.sort(key=lambda item: item.published_at, reverse=True)
+    enriched_posts.sort(
+        key=lambda item: (item.blog_id not in priority_bloggers, -item.published_at.timestamp())
+    )
     summarizer = Summarizer(
         settings.openai_api_key,
         settings.openai_model,
@@ -65,18 +68,20 @@ def main() -> int:
         settings.gemini_model,
     )
     enriched_posts = summarizer.summarize_all(enriched_posts)
-    digest = build_digest(enriched_posts)
+    messages = build_digest_messages(enriched_posts, priority_bloggers)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     digest_path = settings.output_dir / f"digest_{timestamp}.md"
-    digest_path.write_text(digest, encoding="utf-8")
+    digest_path.write_text("\n\n---\n\n".join(messages), encoding="utf-8")
 
     print(format_console_report(enriched_posts))
+    print(f"우선 블로거: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}건")
     print(f"리포트 저장: {digest_path}")
+    print(f"메시지 수: {len(messages)}")
 
     if not args.dry_run:
-        result = send_digest(settings.telegram_bot_token, settings.telegram_chat_id, digest)
-        print(f"텔레그램: {result['ok']}")
+        result = send_digest(settings.telegram_bot_token, settings.telegram_chat_id, messages)
+        print(f"텔레그램: {result['ok']} ({result['message']})")
 
     seen_guids.update(post.guid for post in enriched_posts)
     save_seen_guids(settings.state_path, seen_guids)
