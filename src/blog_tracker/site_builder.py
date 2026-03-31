@@ -734,10 +734,10 @@ def render_index_html() -> str:
         <section class="section-card" id="dc-board">
           <div class="section-head">
             <div>
-              <h2>반도체 산업 갤러리</h2>
+              <h2>디시 커뮤니티 픽</h2>
               <div class="section-meta" id="dc-meta">불러오는 중...</div>
             </div>
-            <a class="quick-link" href="./semiconductor-gallery.html">전체 링크 페이지</a>
+            <a class="quick-link" href="./semiconductor-gallery.html">갤러리 링크 페이지</a>
           </div>
           <div class="posts" id="dc-posts"></div>
         </section>
@@ -846,7 +846,7 @@ def render_index_html() -> str:
 
     function getDcHeatAlpha(post) {
       const views = parseViewCount(post.views);
-      const maxViews = Math.max(...((state.dc?.posts || []).map((item) => parseViewCount(item.views))), 1);
+      const maxViews = Math.max(...((state.dc?.featured_posts || state.dc?.posts || []).map((item) => parseViewCount(item.views))), 1);
       const normalized = Math.log10(views + 1) / Math.log10(maxViews + 1);
       return Math.max(0.08, Math.min(0.28, 0.08 + normalized * 0.2));
     }
@@ -887,8 +887,8 @@ def render_index_html() -> str:
       });
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
-      links.push(buildQuickLink("반도체 산업 갤러리", { section: "dc" }, "#dc-board"));
-      links.push('<a class="quick-link" href="./semiconductor-gallery.html">반도체 산업 갤러리</a>');
+      links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
+      links.push('<a class="quick-link" href="./semiconductor-gallery.html">디시 갤러리 모음</a>');
       els.quickLinks.innerHTML = links.join("");
     }
 
@@ -967,7 +967,7 @@ def render_index_html() -> str:
     }
 
     function renderDcBoard() {
-      const posts = (state.dc?.posts || []).slice(0, 6);
+      const posts = (state.dc?.featured_posts || state.dc?.posts || []).slice(0, 6);
       els.dcMeta.textContent = `최신 ${posts.length}건`;
       if (!posts.length) {
         els.dcPosts.innerHTML = '<div class="post empty">아직 갤러리 데이터가 없습니다.</div>';

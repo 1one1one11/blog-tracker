@@ -34,8 +34,8 @@ def build_digest(posts: Iterable[BlogPost]) -> str:
 def _render_dc_post(post: DcPost) -> str:
     return "\n".join(
         [
-            f"<b>[디시 반도체산업갤러리]</b> {html.escape(post.title)}",
-            f"작성자: {html.escape(post.author or '익명')} | 댓글: {html.escape(post.comments)} | 추천: {html.escape(post.recommends)}",
+            f"<b>[{html.escape(post.source_title)}]</b> {html.escape(post.title)}",
+            f"작성자: {html.escape(post.author or '익명')} | 댓글: {html.escape(post.comments)} | 추천: {html.escape(post.recommends)} | 조회: {html.escape(post.views)}",
             f"요약: {html.escape(post.summary or post.excerpt)}",
             f"<a href=\"{html.escape(post.link)}\">원문 보기</a>",
         ]
@@ -58,7 +58,7 @@ def build_digest_messages(
         blocks.append("<b>우선 블로거 새 글</b>")
         blocks.extend(_render_post(post) for post in priority_posts)
     if dc_posts:
-        blocks.append("<b>디시 반도체산업갤러리</b>")
+        blocks.append("<b>디시 커뮤니티 픽</b>")
         blocks.extend(_render_dc_post(post) for post in dc_posts)
     if regular_posts:
         if priority_posts or dc_posts:

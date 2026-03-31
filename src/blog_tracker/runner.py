@@ -8,7 +8,7 @@ from datetime import datetime
 
 from blog_tracker.classifier import classify_post
 from blog_tracker.config import load_blog_sources, load_priority_bloggers, load_settings
-from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, DcPost, fetch_dc_semiconductor_posts
+from blog_tracker.dc_gallery import CURATED_GALLERIES, DcPost, fetch_curated_dc_bundle
 from blog_tracker.reporting import build_digest_payload, write_digest_payload
 from blog_tracker.rss import fetch_post_content, fetch_recent_posts
 from blog_tracker.state import load_seen_guids, save_seen_guids
@@ -20,9 +20,9 @@ def format_console_report(label: str, posts) -> str:
     grouped = defaultdict(list)
     for post in posts:
         grouped[post.classification].append(post)
-    lines = [f"{label} {len(posts)}건"]
+    lines = [f"{label}: {len(posts)}"]
     for group_name, group_posts in grouped.items():
-        lines.append(f"- {group_name}: {len(group_posts)}건")
+        lines.append(f"- {group_name}: {len(group_posts)}")
     return "\n".join(lines)
 
 
@@ -36,7 +36,7 @@ def export_dashboard_json(settings, posts, priority_bloggers: set[str], generate
     docs_data_dir = settings.root_dir / "docs" / "data"
     docs_data_dir.mkdir(parents=True, exist_ok=True)
 
-    classification_counts = Counter(post.classification or "미분류" for post in posts)
+    classification_counts = Counter(post.classification or "unclassified" for post in posts)
     payload = {
         "generated_at": generated_at.isoformat(),
         "total_posts": len(posts),
@@ -66,32 +66,82 @@ def export_dashboard_json(settings, posts, priority_bloggers: set[str], generate
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def export_dc_gallery_json(settings, generated_at: datetime, posts: list[DcPost] | None = None) -> None:
+def empty_dc_bundle() -> dict:
+    return {"galleries": [], "featured_posts": []}
+
+
+def export_dc_gallery_json(settings, generated_at: datetime, bundle: dict | None = None) -> None:
     docs_data_dir = settings.root_dir / "docs" / "data"
     docs_data_dir.mkdir(parents=True, exist_ok=True)
-    posts = posts or fetch_dc_semiconductor_posts(limit=30)
-    payload = {
+    bundle = bundle or fetch_curated_dc_bundle(limit_per_gallery=30)
+
+    community_payload = {
         "generated_at": generated_at.isoformat(),
-        "source_title": "디시인사이드 반도체산업 마이너 갤러리",
-        "source_link": DC_LIST_URL,
-        "total_posts": len(posts),
-        "posts": [
-            {
-                "title": post.title,
-                "link": post.link,
-                "author": post.author,
-                "published_at": post.published_at,
-                "views": post.views,
-                "recommends": post.recommends,
-                "comments": post.comments,
-                "excerpt": post.excerpt,
-                "summary": post.summary,
-            }
-            for post in posts
-        ],
+        "source_title": "DC stock gallery curation",
+        "total_posts": sum(section["total_posts"] for section in bundle["galleries"]),
+        "featured_posts": bundle["featured_posts"],
+        "galleries": bundle["galleries"],
     }
+    legacy_payload = {
+        "generated_at": generated_at.isoformat(),
+        "source_title": "DC community picks",
+        "source_link": CURATED_GALLERIES[0].list_url,
+        "total_posts": len(bundle["featured_posts"]),
+        "posts": bundle["featured_posts"],
+    }
+
+    for path in [settings.output_dir / "dc_community.json", docs_data_dir / "dc_community.json"]:
+        path.write_text(json.dumps(community_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     for path in [settings.output_dir / "dc_semiconductor.json", docs_data_dir / "dc_semiconductor.json"]:
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(legacy_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def flatten_dc_selected_posts(bundle: dict) -> list[DcPost]:
+    posts: list[DcPost] = []
+    for gallery in bundle["galleries"]:
+        for item in gallery["selected_posts"]:
+            posts.append(
+                DcPost(
+                    source_id=item["source_id"],
+                    source_title=item["source_title"],
+                    source_link=item["source_link"],
+                    title=item["title"],
+                    link=item["link"],
+                    author=item["author"],
+                    published_at=item["published_at"],
+                    views=item["views"],
+                    recommends=item["recommends"],
+                    comments=item["comments"],
+                    excerpt=item["excerpt"],
+                    summary=item.get("summary", ""),
+                    score=float(item.get("score", 0.0)),
+                )
+            )
+    return posts
+
+
+def summarize_dc_posts(summarizer: Summarizer, posts: list[DcPost]) -> None:
+    for post in posts:
+        fallback = post.excerpt[:220] + ("..." if len(post.excerpt) > 220 else "") if post.excerpt else "Open the original post for details."
+        prompt = (
+            f"Summarize this DCInside post from {post.source_title} in Korean using at most 2 sentences. "
+            "Prioritize market context, sector trend, ticker discussion, and investor sentiment. "
+            "If it is mostly chatter, summarize the mood briefly.\n\n"
+            f"Title: {post.title}\n"
+            f"Author: {post.author}\n"
+            f"Excerpt: {post.excerpt[:3000]}"
+        )
+        post.summary = summarizer.summarize_text(prompt, fallback)
+
+
+def inject_dc_summaries(bundle: dict, summarized_posts: list[DcPost]) -> dict:
+    summary_map = {post.link: post.summary for post in summarized_posts}
+    for gallery in bundle["galleries"]:
+        for item in gallery["selected_posts"]:
+            item["summary"] = summary_map.get(item["link"], item.get("summary", ""))
+    for item in bundle["featured_posts"]:
+        item["summary"] = summary_map.get(item["link"], item.get("summary", ""))
+    return bundle
 
 
 def main() -> int:
@@ -112,10 +162,10 @@ def main() -> int:
             recent_post_map[post.guid] = post
 
     if not recent_post_map:
-        print("최근 날짜 범위에 해당하는 글이 없습니다.")
+        print("No recent blog posts found.")
         generated_at = datetime.now().astimezone()
         export_dashboard_json(settings, [], priority_bloggers, generated_at)
-        export_dc_gallery_json(settings, generated_at, [])
+        export_dc_gallery_json(settings, generated_at, empty_dc_bundle())
         return 0
 
     recent_posts = list(recent_post_map.values())
@@ -135,26 +185,19 @@ def main() -> int:
         settings.gemini_model,
     )
     enriched_posts = summarizer.summarize_all(enriched_posts)
-    dc_posts = fetch_dc_semiconductor_posts(limit=30)
-    for post in dc_posts[:5]:
-        fallback = post.excerpt[:220] + ("..." if len(post.excerpt) > 220 else "") if post.excerpt else "본문 발췌가 없어 원문 확인이 필요합니다."
-        prompt = (
-            "다음 디시인사이드 반도체산업갤러리 글을 한국어로 2문장 이내로 요약해 주세요. "
-            "핵심 주장이나 업황/기업 관련 포인트가 있으면 우선 적고, 잡담성 글이면 분위기만 짧게 요약해 주세요.\n\n"
-            f"제목: {post.title}\n"
-            f"작성자: {post.author}\n"
-            f"본문 발췌: {post.excerpt[:3000]}"
-        )
-        post.summary = summarizer.summarize_text(prompt, fallback)
+
+    dc_bundle = fetch_curated_dc_bundle(limit_per_gallery=30)
+    dc_posts = flatten_dc_selected_posts(dc_bundle)
+    summarize_dc_posts(summarizer, dc_posts)
+    dc_bundle = inject_dc_summaries(dc_bundle, dc_posts)
 
     fresh_posts = [post for post in enriched_posts if post.guid not in seen_guids]
     digest = build_digest(fresh_posts) if fresh_posts else ""
-    dc_digest_posts = dc_posts[:5]
     digest_messages = build_digest_messages(
         fresh_posts,
-        dc_posts=dc_digest_posts,
+        dc_posts=dc_posts,
         priority_bloggers=priority_bloggers,
-    ) if (fresh_posts or dc_digest_posts) else []
+    ) if (fresh_posts or dc_posts) else []
 
     generated_at = datetime.now().astimezone()
     timestamp = generated_at.strftime("%Y%m%d_%H%M%S")
@@ -171,22 +214,22 @@ def main() -> int:
         ),
     )
     export_dashboard_json(settings, enriched_posts, priority_bloggers, generated_at)
-    export_dc_gallery_json(settings, generated_at, dc_posts)
+    export_dc_gallery_json(settings, generated_at, dc_bundle)
 
-    print(format_console_report("최근 기준 전체 글", enriched_posts))
-    print(format_console_report("중복 제외 신규 글", fresh_posts))
-    print(f"우선 블로거 전체: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}건")
-    print(f"우선 블로거 신규: {len([post for post in fresh_posts if post.blog_id in priority_bloggers])}건")
-    print(f"디시 포함 글: {len(dc_digest_posts)}건")
-    print(f"리포트 저장: {digest_path}")
-    print(f"리포트 JSON 저장: {digest_json_path}")
-    print(f"텔레그램 메시지 수: {len(digest_messages)}")
+    print(format_console_report("Recent blog posts", enriched_posts))
+    print(format_console_report("Fresh blog posts", fresh_posts))
+    print(f"Priority bloggers total: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}")
+    print(f"Priority bloggers fresh: {len([post for post in fresh_posts if post.blog_id in priority_bloggers])}")
+    print(f"Curated DC posts: {len(dc_posts)}")
+    print(f"Digest path: {digest_path}")
+    print(f"Digest JSON path: {digest_json_path}")
+    print(f"Telegram message count: {len(digest_messages)}")
 
     should_persist_state = True
     if digest_messages and not args.dry_run:
         results = send_digest_messages(settings.telegram_bot_token, settings.telegram_chat_id, digest_messages)
         all_ok = all(result["ok"] for result in results)
-        print(f"텔레그램: {all_ok}")
+        print(f"Telegram success: {all_ok}")
         should_persist_state = all_ok
 
     if should_persist_state:
@@ -194,7 +237,7 @@ def main() -> int:
         save_seen_guids(settings.state_path, seen_guids)
         return 0
 
-    print("텔레그램 발송 실패로 state 저장을 건너뜁니다.")
+    print("Skipping state save because Telegram delivery failed.")
     return 1
 
 
