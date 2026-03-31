@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>반도체산업갤러리 링크 페이지</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">DC Inside</p>
+      <h1>반도체산업갤러리 링크 페이지</h1>
+      <p class="subtitle">최신 글 링크와 간단한 본문 발췌를 빠르게 훑어보는 페이지입니다.</p>
+      <p class="hero-links">
+        <a href="./index.html">블로그 브리핑으로 돌아가기</a>
+      </p>
+      <div class="stats" id="dc-stats"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>최신 게시글</h2>
+        <a id="dc-source-link" class="post-link" target="_blank" rel="noreferrer">원본 게시판 열기</a>
+      </div>
+      <div id="dc-posts" class="post-grid"></div>
+    </section>
+  </main>
+
+  <template id="dc-post-template">
+    <article class="post-card">
+      <div class="post-top">
+        <span class="chip chip-classification">디시</span>
+      </div>
+      <h3 class="post-title"></h3>
+      <p class="post-meta"></p>
+      <p class="post-summary"></p>
+      <a class="post-link" target="_blank" rel="noreferrer">게시글 보기</a>
+    </article>
+  </template>
+
+  <script src="./semiconductor-gallery.js"></script>
+</body>
+</html>

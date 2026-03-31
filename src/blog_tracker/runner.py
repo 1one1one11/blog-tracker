@@ -8,6 +8,7 @@ from datetime import datetime
 
 from blog_tracker.classifier import classify_post
 from blog_tracker.config import load_blog_sources, load_priority_bloggers, load_settings
+from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconductor_posts
 from blog_tracker.reporting import build_digest_payload, write_digest_payload
 from blog_tracker.rss import fetch_post_content, fetch_recent_posts
 from blog_tracker.state import load_seen_guids, save_seen_guids
@@ -65,6 +66,33 @@ def export_dashboard_json(settings, posts, priority_bloggers: set[str], generate
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def export_dc_gallery_json(settings, generated_at: datetime) -> None:
+    docs_data_dir = settings.root_dir / "docs" / "data"
+    docs_data_dir.mkdir(parents=True, exist_ok=True)
+    posts = fetch_dc_semiconductor_posts(limit=30)
+    payload = {
+        "generated_at": generated_at.isoformat(),
+        "source_title": "디시인사이드 반도체산업 마이너 갤러리",
+        "source_link": DC_LIST_URL,
+        "total_posts": len(posts),
+        "posts": [
+            {
+                "title": post.title,
+                "link": post.link,
+                "author": post.author,
+                "published_at": post.published_at,
+                "views": post.views,
+                "recommends": post.recommends,
+                "comments": post.comments,
+                "excerpt": post.excerpt,
+            }
+            for post in posts
+        ],
+    }
+    for path in [settings.output_dir / "dc_semiconductor.json", docs_data_dir / "dc_semiconductor.json"]:
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--days-back", type=int, default=None)
@@ -84,6 +112,9 @@ def main() -> int:
 
     if not recent_post_map:
         print("최근 날짜 범위에 해당하는 글이 없습니다.")
+        generated_at = datetime.now().astimezone()
+        export_dashboard_json(settings, [], priority_bloggers, generated_at)
+        export_dc_gallery_json(settings, generated_at)
         return 0
 
     recent_posts = list(recent_post_map.values())
@@ -123,9 +154,10 @@ def main() -> int:
         ),
     )
     export_dashboard_json(settings, enriched_posts, priority_bloggers, generated_at)
+    export_dc_gallery_json(settings, generated_at)
 
-    print(format_console_report("날짜 기준 전체 글", enriched_posts))
-    print(format_console_report("신규 감지 글", fresh_posts))
+    print(format_console_report("최근 기준 전체 글", enriched_posts))
+    print(format_console_report("중복 제외 신규 글", fresh_posts))
     print(f"우선 블로거 전체: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}건")
     print(f"우선 블로거 신규: {len([post for post in fresh_posts if post.blog_id in priority_bloggers])}건")
     print(f"리포트 저장: {digest_path}")
