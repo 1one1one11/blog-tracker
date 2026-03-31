@@ -618,6 +618,30 @@ def render_index_html() -> str:
       border: 1px solid rgba(14, 116, 144, 0.16);
       background: linear-gradient(180deg, rgba(240, 249, 255, 0.88), rgba(255,250,243,0.96));
     }
+    .dc-post {
+      position: relative;
+      overflow: hidden;
+      border-color: rgba(154, 52, 18, 0.14);
+    }
+    .dc-post::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(154, 52, 18, var(--heat-alpha, 0.08)), rgba(245, 158, 11, calc(var(--heat-alpha, 0.08) * 0.65)), rgba(255,255,255,0));
+    }
+    .dc-post > * {
+      position: relative;
+      z-index: 1;
+    }
+    .dc-badge {
+      background: rgba(154, 52, 18, 0.14);
+      color: #8a2d10;
+    }
+    .dc-chip {
+      background: rgba(245, 158, 11, 0.12);
+      color: #9a3412;
+    }
     .empty {
       padding: 28px;
       text-align: center;
@@ -815,6 +839,18 @@ def render_index_html() -> str:
       return `${year}-${month}-${day}`;
     }
 
+    function parseViewCount(value) {
+      const numeric = Number(String(value || "").replace(/[^\\d]/g, ""));
+      return Number.isFinite(numeric) ? numeric : 0;
+    }
+
+    function getDcHeatAlpha(post) {
+      const views = parseViewCount(post.views);
+      const maxViews = Math.max(...((state.dc?.posts || []).map((item) => parseViewCount(item.views))), 1);
+      const normalized = Math.log10(views + 1) / Math.log10(maxViews + 1);
+      return Math.max(0.08, Math.min(0.28, 0.08 + normalized * 0.2));
+    }
+
     function renderTopClasses() {
       const items = Object.entries(state.archive.classifications || {}).slice(0, 8);
       els.topClasses.innerHTML = items
@@ -910,11 +946,12 @@ def render_index_html() -> str:
 
     function renderDcPostCard(post) {
       const summary = post.summary || post.excerpt || "본문을 불러오지 못했습니다.";
+      const heatAlpha = getDcHeatAlpha(post).toFixed(3);
       return `
-        <article class="post">
+        <article class="post dc-post" style="--heat-alpha:${heatAlpha}">
           <div class="post-top">
-            <span class="badge">디시</span>
-            <span class="chip">반도체 산업 갤러리</span>
+            <span class="badge dc-badge">디시</span>
+            <span class="chip dc-chip">반도체 산업 갤러리</span>
           </div>
           <div class="published-at">게시 시각: ${escapeHtml(formatDate(post.published_at))}</div>
           <h3><a href="${post.link}" target="_blank" rel="noreferrer">${escapeHtml(post.title || "(제목 없음)")}</a></h3>
