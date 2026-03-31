@@ -707,6 +707,17 @@ def render_index_html() -> str:
           <div class="chips" id="priority-roster"></div>
         </section>
 
+        <section class="section-card" id="dc-board">
+          <div class="section-head">
+            <div>
+              <h2>반도체 산업 갤러리</h2>
+              <div class="section-meta" id="dc-meta">불러오는 중...</div>
+            </div>
+            <a class="quick-link" href="./semiconductor-gallery.html">전체 링크 페이지</a>
+          </div>
+          <div class="posts" id="dc-posts"></div>
+        </section>
+
         <section class="section-card" id="date-board">
           <div class="section-head">
             <div>
@@ -738,6 +749,8 @@ def render_index_html() -> str:
       priorityMeta: document.getElementById("priority-meta"),
       priorityRoster: document.getElementById("priority-roster"),
       priorityRosterMeta: document.getElementById("priority-roster-meta"),
+      dcPosts: document.getElementById("dc-posts"),
+      dcMeta: document.getElementById("dc-meta"),
       tabPosts: document.getElementById("tab-posts"),
       tabMeta: document.getElementById("tab-meta"),
       dateTabs: document.getElementById("date-tabs"),
@@ -838,6 +851,7 @@ def render_index_html() -> str:
       });
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
+      links.push(buildQuickLink("반도체 산업 갤러리", { section: "dc" }, "#dc-board"));
       links.push('<a class="quick-link" href="./semiconductor-gallery.html">반도체 산업 갤러리</a>');
       els.quickLinks.innerHTML = links.join("");
     }
@@ -892,6 +906,37 @@ def render_index_html() -> str:
           : blogger.blog_id;
         return `<span class="chip">${escapeHtml(label)} <strong>${blogger.post_count}</strong></span>`;
       }).join("");
+    }
+
+    function renderDcPostCard(post) {
+      const summary = post.summary || post.excerpt || "본문을 불러오지 못했습니다.";
+      return `
+        <article class="post">
+          <div class="post-top">
+            <span class="badge">디시</span>
+            <span class="chip">반도체 산업 갤러리</span>
+          </div>
+          <div class="published-at">게시 시각: ${escapeHtml(formatDate(post.published_at))}</div>
+          <h3><a href="${post.link}" target="_blank" rel="noreferrer">${escapeHtml(post.title || "(제목 없음)")}</a></h3>
+          <p>${escapeHtml(summary)}</p>
+          <div class="meta">
+            <span class="author-meta">작성자: ${escapeHtml(post.author || "익명")}</span>
+            <span>댓글: ${escapeHtml(post.comments || "0")}</span>
+            <span>추천: ${escapeHtml(post.recommends || "0")}</span>
+            <span>조회: ${escapeHtml(post.views || "0")}</span>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderDcBoard() {
+      const posts = (state.dc?.posts || []).slice(0, 6);
+      els.dcMeta.textContent = `최신 ${posts.length}건`;
+      if (!posts.length) {
+        els.dcPosts.innerHTML = '<div class="post empty">아직 갤러리 데이터가 없습니다.</div>';
+        return;
+      }
+      els.dcPosts.innerHTML = posts.map((post) => renderDcPostCard(post)).join("");
     }
 
     function renderDateTabs() {
@@ -952,8 +997,12 @@ def render_index_html() -> str:
     }
 
     async function boot() {
-      const response = await fetch("./data/archive.json");
-      state.archive = await response.json();
+      const [archiveResponse, dcResponse] = await Promise.all([
+        fetch("./data/archive.json"),
+        fetch("./data/dc_semiconductor.json"),
+      ]);
+      state.archive = await archiveResponse.json();
+      state.dc = await dcResponse.json();
       fillSelect(els.classification, uniqueSorted(state.archive.posts.map((post) => post.classification)));
       fillSelect(els.group, uniqueSorted(state.archive.posts.map((post) => post.group_name)));
       fillSelect(els.author, uniqueSorted(state.archive.posts.map((post) => post.display_name)));
@@ -965,6 +1014,7 @@ def render_index_html() -> str:
       renderQuickLinks();
       renderPriorityBoard();
       renderPriorityRoster();
+      renderDcBoard();
       applyUrlFilters();
       renderDateTabs();
       applyFilters();
