@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from blog_tracker.config import load_priority_bloggers
+from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconductor_posts
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -95,6 +96,253 @@ def build_archive_payload(posts: list[dict[str, Any]], generated_at: datetime, p
         "groups": dict(groups.most_common()),
         "posts": posts,
     }
+
+
+def load_dc_payload(output_dir: Path, generated_at: datetime) -> dict[str, Any]:
+    dc_path = output_dir / "dc_semiconductor.json"
+    if dc_path.exists():
+        return _load_json(dc_path)
+
+    posts = fetch_dc_semiconductor_posts(limit=30)
+    return {
+        "generated_at": generated_at.isoformat(),
+        "source_title": "디시인사이드 반도체산업 마이너 갤러리",
+        "source_link": DC_LIST_URL,
+        "total_posts": len(posts),
+        "posts": [
+            {
+                "title": post.title,
+                "link": post.link,
+                "author": post.author,
+                "published_at": post.published_at,
+                "views": post.views,
+                "recommends": post.recommends,
+                "comments": post.comments,
+                "excerpt": post.excerpt,
+                "summary": post.summary,
+            }
+            for post in posts
+        ],
+    }
+
+
+def render_dc_gallery_html() -> str:
+    return """<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>반도체 산업 갤러리 링크 모음</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --surface: rgba(255, 250, 243, 0.9);
+      --surface-strong: #fffaf2;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: rgba(31, 41, 55, 0.12);
+      --accent: #9a3412;
+      --chip: #f2e5d5;
+      --shadow: 0 22px 50px rgba(68, 39, 12, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard Variable", "Noto Sans KR", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(154, 52, 18, 0.16), transparent 24rem),
+        radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 22rem),
+        linear-gradient(180deg, #f7f2ea 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+    .shell {
+      width: min(1280px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+    .hero, .post {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.74), rgba(255,250,243,0.96));
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 28px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.3rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+    .lede, .meta-line {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .link-btn:hover {
+      border-color: rgba(154, 52, 18, 0.28);
+      color: var(--accent);
+    }
+    .posts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .post {
+      padding: 18px;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .post h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      letter-spacing: -0.02em;
+    }
+    .post h2 a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .post p {
+      margin: 0;
+      line-height: 1.6;
+      color: #374151;
+      display: -webkit-box;
+      -webkit-line-clamp: 6;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .meta {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    @media (max-width: 1100px) {
+      .posts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 20px, 1280px); padding-top: 20px; }
+      .hero { padding: 22px; }
+      .posts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1>반도체 산업 갤러리 링크 모음</h1>
+      <p class="lede">디시인사이드 반도체산업 마이너 갤러리의 최신 글을 링크와 함께 모아둔 페이지입니다. 요약이 있으면 같이 보여주고, 없으면 본문 발췌를 보여줍니다.</p>
+      <div class="meta-line" id="summary-meta">불러오는 중...</div>
+      <div class="hero-links">
+        <a class="link-btn" href="./">브리핑 메인으로</a>
+        <a class="link-btn" href="https://gall.dcinside.com/mgallery/board/lists/?id=tsmcsamsungskhynix" target="_blank" rel="noreferrer">갤러리 원문 보기</a>
+      </div>
+    </section>
+    <section class="posts" id="posts"></section>
+  </div>
+  <script>
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    }
+
+    function renderPost(post) {
+      const summary = post.summary || post.excerpt || "본문을 불러오지 못했습니다.";
+      return `
+        <article class="post">
+          <div class="badges">
+            <span class="badge">댓글 ${escapeHtml(post.comments || "0")}</span>
+            <span class="badge">추천 ${escapeHtml(post.recommends || "0")}</span>
+            <span class="badge">조회 ${escapeHtml(post.views || "0")}</span>
+          </div>
+          <h2><a href="${escapeHtml(post.link)}" target="_blank" rel="noreferrer">${escapeHtml(post.title || "(제목 없음)")}</a></h2>
+          <p>${escapeHtml(summary)}</p>
+          <div class="meta">
+            <span>작성자: ${escapeHtml(post.author || "익명")}</span>
+            <span>게시: ${escapeHtml(formatDate(post.published_at))}</span>
+          </div>
+        </article>
+      `;
+    }
+
+    async function boot() {
+      const response = await fetch("./data/dc_semiconductor.json");
+      const payload = await response.json();
+      document.getElementById("summary-meta").textContent =
+        `최신 ${payload.total_posts || 0}건 · 마지막 갱신 ${formatDate(payload.generated_at)}`;
+      const postsEl = document.getElementById("posts");
+      const posts = payload.posts || [];
+      postsEl.innerHTML = posts.length
+        ? posts.map(renderPost).join("")
+        : '<div class="empty">아직 갤러리 데이터가 없습니다.</div>';
+    }
+
+    boot().catch((error) => {
+      console.error(error);
+      document.getElementById("summary-meta").textContent = "갤러리 데이터를 불러오지 못했습니다.";
+      document.getElementById("posts").innerHTML = '<div class="empty">배포 데이터가 준비되지 않았습니다.</div>';
+    });
+  </script>
+</body>
+</html>
+"""
 
 
 def render_index_html() -> str:
@@ -590,6 +838,7 @@ def render_index_html() -> str:
       });
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
+      links.push('<a class="quick-link" href="./semiconductor-gallery.html">반도체 산업 갤러리</a>');
       els.quickLinks.innerHTML = links.join("");
     }
 
@@ -747,9 +996,12 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     generated_at = datetime.now().astimezone()
     merged_posts = merge_archive(existing_posts, payloads, priority_bloggers=priority_bloggers, max_posts=max_posts)
     archive_payload = build_archive_payload(merged_posts, generated_at=generated_at, priority_bloggers=priority_bloggers)
+    dc_payload = load_dc_payload(output_dir, generated_at=generated_at)
 
     archive_path.write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "archive.json").write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (site_data_dir / "dc_semiconductor.json").write_text(json.dumps(dc_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_dir / "index.html").write_text(render_index_html(), encoding="utf-8")
+    (site_dir / "semiconductor-gallery.html").write_text(render_dc_gallery_html(), encoding="utf-8")
     (site_dir / ".nojekyll").write_text("", encoding="utf-8")
     return archive_payload
