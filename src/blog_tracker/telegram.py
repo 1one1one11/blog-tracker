@@ -5,6 +5,7 @@ from typing import Iterable
 
 import httpx
 
+from blog_tracker.dc_gallery import DcPost
 from blog_tracker.models import BlogPost
 
 HEADER = "<b>네이버 블로그 새 글 브리핑</b>"
@@ -30,12 +31,25 @@ def build_digest(posts: Iterable[BlogPost]) -> str:
     return "\n".join(blocks).strip()
 
 
+def _render_dc_post(post: DcPost) -> str:
+    return "\n".join(
+        [
+            f"<b>[디시 반도체산업갤러리]</b> {html.escape(post.title)}",
+            f"작성자: {html.escape(post.author or '익명')} | 댓글: {html.escape(post.comments)} | 추천: {html.escape(post.recommends)}",
+            f"요약: {html.escape(post.summary or post.excerpt)}",
+            f"<a href=\"{html.escape(post.link)}\">원문 보기</a>",
+        ]
+    )
+
+
 def build_digest_messages(
     posts: list[BlogPost],
+    dc_posts: list[DcPost] | None = None,
     priority_bloggers: set[str] | None = None,
     max_length: int = MAX_MESSAGE_LENGTH,
 ) -> list[str]:
     priority_bloggers = priority_bloggers or set()
+    dc_posts = dc_posts or []
     priority_posts = [post for post in posts if post.blog_id in priority_bloggers]
     regular_posts = [post for post in posts if post.blog_id not in priority_bloggers]
 
@@ -43,8 +57,11 @@ def build_digest_messages(
     if priority_posts:
         blocks.append("<b>우선 블로거 새 글</b>")
         blocks.extend(_render_post(post) for post in priority_posts)
+    if dc_posts:
+        blocks.append("<b>디시 반도체산업갤러리</b>")
+        blocks.extend(_render_dc_post(post) for post in dc_posts)
     if regular_posts:
-        if priority_posts:
+        if priority_posts or dc_posts:
             blocks.append("<b>전체 새 글</b>")
         blocks.extend(_render_post(post) for post in regular_posts)
 

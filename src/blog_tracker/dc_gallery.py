@@ -23,6 +23,7 @@ class DcPost:
     recommends: str
     comments: str
     excerpt: str
+    summary: str = ""
 
 
 def _fetch_post_excerpt(client: httpx.Client, link: str) -> str:

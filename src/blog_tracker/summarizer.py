@@ -30,9 +30,6 @@ class Summarizer:
             self.client = OpenAI(api_key=openai_api_key)
 
     def summarize_post(self, post: BlogPost) -> str:
-        if self.provider == "none":
-            return _fallback_summary(post)
-
         prompt = (
             "다음 네이버 블로그 글을 한국어로 2문장 이내로 요약해 주세요. "
             "투자 판단에 도움 되는 핵심 주장, 데이터 포인트, 리스크를 우선 적어 주세요.\n\n"
@@ -43,6 +40,12 @@ class Summarizer:
             f"태그: {', '.join(post.tags)}\n"
             f"본문 발췌: {(post.content_text or post.description_text)[:5000]}"
         )
+        return self.summarize_text(prompt, _fallback_summary(post))
+
+    def summarize_text(self, prompt: str, fallback_text: str) -> str:
+        if self.provider == "none":
+            return fallback_text
+
         try:
             if self.provider == "openai":
                 response = self.client.responses.create(
@@ -50,7 +53,7 @@ class Summarizer:
                     input=prompt,
                 )
                 text = getattr(response, "output_text", "").strip()
-                return text or _fallback_summary(post)
+                return text or fallback_text
 
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
             payload = {
@@ -63,12 +66,12 @@ class Summarizer:
                 data = response.json()
             candidates = data.get("candidates", [])
             if not candidates:
-                return _fallback_summary(post)
+                return fallback_text
             parts = candidates[0].get("content", {}).get("parts", [])
             text = " ".join(part.get("text", "") for part in parts).strip()
-            return text or _fallback_summary(post)
+            return text or fallback_text
         except Exception:
-            return _fallback_summary(post)
+            return fallback_text
 
     def summarize_all(self, posts: Iterable[BlogPost]) -> list[BlogPost]:
         enriched: list[BlogPost] = []

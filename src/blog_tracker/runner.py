@@ -8,7 +8,7 @@ from datetime import datetime
 
 from blog_tracker.classifier import classify_post
 from blog_tracker.config import load_blog_sources, load_priority_bloggers, load_settings
-from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconductor_posts
+from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, DcPost, fetch_dc_semiconductor_posts
 from blog_tracker.reporting import build_digest_payload, write_digest_payload
 from blog_tracker.rss import fetch_post_content, fetch_recent_posts
 from blog_tracker.state import load_seen_guids, save_seen_guids
@@ -66,10 +66,10 @@ def export_dashboard_json(settings, posts, priority_bloggers: set[str], generate
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def export_dc_gallery_json(settings, generated_at: datetime) -> None:
+def export_dc_gallery_json(settings, generated_at: datetime, posts: list[DcPost] | None = None) -> None:
     docs_data_dir = settings.root_dir / "docs" / "data"
     docs_data_dir.mkdir(parents=True, exist_ok=True)
-    posts = fetch_dc_semiconductor_posts(limit=30)
+    posts = posts or fetch_dc_semiconductor_posts(limit=30)
     payload = {
         "generated_at": generated_at.isoformat(),
         "source_title": "디시인사이드 반도체산업 마이너 갤러리",
@@ -85,6 +85,7 @@ def export_dc_gallery_json(settings, generated_at: datetime) -> None:
                 "recommends": post.recommends,
                 "comments": post.comments,
                 "excerpt": post.excerpt,
+                "summary": post.summary,
             }
             for post in posts
         ],
@@ -114,7 +115,7 @@ def main() -> int:
         print("최근 날짜 범위에 해당하는 글이 없습니다.")
         generated_at = datetime.now().astimezone()
         export_dashboard_json(settings, [], priority_bloggers, generated_at)
-        export_dc_gallery_json(settings, generated_at)
+        export_dc_gallery_json(settings, generated_at, [])
         return 0
 
     recent_posts = list(recent_post_map.values())
@@ -134,10 +135,26 @@ def main() -> int:
         settings.gemini_model,
     )
     enriched_posts = summarizer.summarize_all(enriched_posts)
+    dc_posts = fetch_dc_semiconductor_posts(limit=30)
+    for post in dc_posts[:5]:
+        fallback = post.excerpt[:220] + ("..." if len(post.excerpt) > 220 else "") if post.excerpt else "본문 발췌가 없어 원문 확인이 필요합니다."
+        prompt = (
+            "다음 디시인사이드 반도체산업갤러리 글을 한국어로 2문장 이내로 요약해 주세요. "
+            "핵심 주장이나 업황/기업 관련 포인트가 있으면 우선 적고, 잡담성 글이면 분위기만 짧게 요약해 주세요.\n\n"
+            f"제목: {post.title}\n"
+            f"작성자: {post.author}\n"
+            f"본문 발췌: {post.excerpt[:3000]}"
+        )
+        post.summary = summarizer.summarize_text(prompt, fallback)
 
     fresh_posts = [post for post in enriched_posts if post.guid not in seen_guids]
     digest = build_digest(fresh_posts) if fresh_posts else ""
-    digest_messages = build_digest_messages(fresh_posts, priority_bloggers=priority_bloggers) if fresh_posts else []
+    dc_digest_posts = dc_posts[:5]
+    digest_messages = build_digest_messages(
+        fresh_posts,
+        dc_posts=dc_digest_posts,
+        priority_bloggers=priority_bloggers,
+    ) if (fresh_posts or dc_digest_posts) else []
 
     generated_at = datetime.now().astimezone()
     timestamp = generated_at.strftime("%Y%m%d_%H%M%S")
@@ -154,18 +171,19 @@ def main() -> int:
         ),
     )
     export_dashboard_json(settings, enriched_posts, priority_bloggers, generated_at)
-    export_dc_gallery_json(settings, generated_at)
+    export_dc_gallery_json(settings, generated_at, dc_posts)
 
     print(format_console_report("최근 기준 전체 글", enriched_posts))
     print(format_console_report("중복 제외 신규 글", fresh_posts))
     print(f"우선 블로거 전체: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}건")
     print(f"우선 블로거 신규: {len([post for post in fresh_posts if post.blog_id in priority_bloggers])}건")
+    print(f"디시 포함 글: {len(dc_digest_posts)}건")
     print(f"리포트 저장: {digest_path}")
     print(f"리포트 JSON 저장: {digest_json_path}")
     print(f"텔레그램 메시지 수: {len(digest_messages)}")
 
     should_persist_state = True
-    if fresh_posts and not args.dry_run:
+    if digest_messages and not args.dry_run:
         results = send_digest_messages(settings.telegram_bot_token, settings.telegram_chat_id, digest_messages)
         all_ok = all(result["ok"] for result in results)
         print(f"텔레그램: {all_ok}")
