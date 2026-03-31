@@ -51,6 +51,13 @@ GLOBALSTOCK_GALLERY = DcGallery(
     curated_limit=5,
     keywords=("미국", "중국", "반도체", "ai", "지수", "시황", "실적", "테마", "엔비디아", "테슬라"),
 )
+BITCOIN_GALLERY = DcGallery(
+    gallery_id="bitcoins_new1",
+    title="비트코인 갤러리",
+    list_url=f"{BASE_URL}/board/lists/?id=bitcoins_new1",
+    curated_limit=5,
+    keywords=("비트코인", "btc", "이더리움", "eth", "알트", "도미넌스", "현물", "선물", "fomc", "etf"),
+)
 
 LIST_URL = SEMICONDUCTOR_GALLERY.list_url
 CURATED_GALLERIES: tuple[DcGallery, ...] = (
@@ -58,6 +65,7 @@ CURATED_GALLERIES: tuple[DcGallery, ...] = (
     KRSTOCK_GALLERY,
     USSTOCK_GALLERY,
     GLOBALSTOCK_GALLERY,
+    BITCOIN_GALLERY,
 )
 
 MARKET_SIGNAL_KEYWORDS = (
@@ -79,6 +87,12 @@ MARKET_SIGNAL_KEYWORDS = (
     "연준",
     "파월",
     "수급",
+    "비트코인",
+    "btc",
+    "이더리움",
+    "eth",
+    "알트",
+    "etf",
 )
 
 
@@ -199,10 +213,6 @@ def _fetch_gallery_rows(client: httpx.Client, gallery: DcGallery, limit: int) ->
     return posts
 
 
-def fetch_dc_semiconductor_posts(limit: int = 30) -> list[DcPost]:
-    return fetch_gallery_posts(SEMICONDUCTOR_GALLERY, limit=limit)
-
-
 def fetch_gallery_posts(gallery: DcGallery, limit: int = 30) -> list[DcPost]:
     with httpx.Client(timeout=15, headers=DEFAULT_HEADERS) as client:
         posts = _fetch_gallery_rows(client, gallery=gallery, limit=limit)
@@ -214,6 +224,10 @@ def fetch_gallery_posts(gallery: DcGallery, limit: int = 30) -> list[DcPost]:
                     post.score += min(2.5, len(post.excerpt) / 350)
         posts.sort(key=lambda item: item.score, reverse=True)
         return posts
+
+
+def fetch_dc_semiconductor_posts(limit: int = 30) -> list[DcPost]:
+    return fetch_gallery_posts(SEMICONDUCTOR_GALLERY, limit=limit)
 
 
 def fetch_curated_dc_bundle(limit_per_gallery: int = 30) -> dict:
@@ -239,6 +253,6 @@ def fetch_curated_dc_bundle(limit_per_gallery: int = 30) -> dict:
     featured_posts.sort(key=lambda item: item.score, reverse=True)
     return {
         "galleries": galleries_payload,
-        "featured_posts": [post.to_dict() for post in featured_posts[:12]],
+        "featured_posts": [post.to_dict() for post in featured_posts[:14]],
         "selected_posts": generated_posts,
     }
