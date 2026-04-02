@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from blog_tracker.analysis_dashboard import build_analysis_files
 from blog_tracker.config import load_priority_bloggers
 from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconductor_posts
 
@@ -889,6 +890,7 @@ def render_index_html() -> str:
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
       links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
       links.push('<a class="quick-link" href="./semiconductor-gallery.html">디시 갤러리 모음</a>');
+      links.push('<a class="quick-link" href="./analysis.html">흐름 분석 보드</a>');
       els.quickLinks.innerHTML = links.join("");
     }
 
@@ -1090,5 +1092,6 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     (site_data_dir / "dc_semiconductor.json").write_text(json.dumps(dc_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_dir / "index.html").write_text(render_index_html(), encoding="utf-8")
     (site_dir / "semiconductor-gallery.html").write_text(render_dc_gallery_html(), encoding="utf-8")
+    build_analysis_files(output_dir=output_dir, site_data_dir=site_data_dir, site_dir=site_dir, archive_payload=archive_payload, generated_at=generated_at)
     (site_dir / ".nojekyll").write_text("", encoding="utf-8")
     return archive_payload
