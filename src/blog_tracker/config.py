@@ -30,6 +30,7 @@ class Settings:
     telegram_bot_token: str
     telegram_bot_tokens: list[str]
     telegram_chat_id: str
+    telegram_extra_chat_id: str
     telegram_destinations: list[TelegramDestination]
     dashboard_url: str
     openai_api_key: str
@@ -87,16 +88,21 @@ def load_settings() -> Settings:
     output_dir.mkdir(parents=True, exist_ok=True)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-    telegram_bot_tokens = _unique_nonempty(
-        [telegram_bot_token]
-        + _split_env_list(os.getenv("TELEGRAM_BOT_TOKENS", ""))
-        + _split_env_list(os.getenv("TELEGRAM_EXTRA_BOT_TOKENS", ""))
-    )
+    telegram_extra_chat_id = os.getenv("TELEGRAM_EXTRA_CHAT_ID", "").strip()
+    default_bot_tokens = _unique_nonempty([telegram_bot_token] + _split_env_list(os.getenv("TELEGRAM_BOT_TOKENS", "")))
+    extra_bot_tokens = _unique_nonempty(_split_env_list(os.getenv("TELEGRAM_EXTRA_BOT_TOKENS", "")))
+    telegram_bot_tokens = _unique_nonempty(default_bot_tokens + extra_bot_tokens)
     telegram_destinations = [
         TelegramDestination(bot_token=bot_token, chat_id=telegram_chat_id)
-        for bot_token in telegram_bot_tokens
+        for bot_token in default_bot_tokens
         if telegram_chat_id
     ]
+    extra_chat_id = telegram_extra_chat_id or telegram_chat_id
+    telegram_destinations.extend(
+        TelegramDestination(bot_token=bot_token, chat_id=extra_chat_id)
+        for bot_token in extra_bot_tokens
+        if extra_chat_id
+    )
     telegram_destinations = _unique_destinations(
         telegram_destinations + _parse_extra_destinations(os.getenv("TELEGRAM_EXTRA_DESTINATIONS", ""))
     )
@@ -111,6 +117,7 @@ def load_settings() -> Settings:
         telegram_bot_token=telegram_bot_token,
         telegram_bot_tokens=telegram_bot_tokens,
         telegram_chat_id=telegram_chat_id,
+        telegram_extra_chat_id=telegram_extra_chat_id,
         telegram_destinations=telegram_destinations,
         dashboard_url=os.getenv("BLOG_TRACKER_DASHBOARD_URL", "https://1one1one11.github.io/blog-tracker/").strip(),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
