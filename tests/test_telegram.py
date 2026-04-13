@@ -80,3 +80,25 @@ def test_send_digest_attaches_dashboard_button(monkeypatch):
         "text": "브리핑 페이지 열기",
         "url": "https://1one1one11.github.io/blog-tracker/",
     }
+
+
+def test_send_digest_returns_false_on_transport_error(monkeypatch):
+    class FailingClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, json):
+            raise RuntimeError("network down")
+
+    monkeypatch.setattr("blog_tracker.telegram.httpx.Client", FailingClient)
+
+    result = send_digest("token", "chat-id", "message")
+
+    assert result["ok"] is False
+    assert "텔레그램 발송 실패" in result["message"]

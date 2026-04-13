@@ -141,10 +141,13 @@ def send_digest(bot_token: str, chat_id: str, message: str, dashboard_url: str |
                 ]
             ]
         }
-    with httpx.Client(timeout=20) as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        data = response.json()
+    try:
+        with httpx.Client(timeout=20) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+    except Exception as exc:
+        return {"ok": False, "message": f"텔레그램 발송 실패: {exc}"}
     return {"ok": bool(data.get("ok")), "message": data}
 
 

@@ -248,7 +248,8 @@ def main() -> int:
         return 0
 
     print("Skipping state save because Telegram delivery failed.")
-    return 1
+    print("Tracker run completed without failing the workflow; unsent posts remain eligible for the next run.")
+    return 0
 
 
 if __name__ == "__main__":
