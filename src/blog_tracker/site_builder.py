@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from collections import Counter
 from datetime import datetime
@@ -124,6 +125,38 @@ def load_dc_payload(output_dir: Path, generated_at: datetime) -> dict[str, Any]:
             }
             for post in posts
         ],
+    }
+
+
+def load_external_sources(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        rows = []
+        for row in csv.DictReader(handle):
+            if str(row.get("enabled", "")).strip().lower() not in {"true", "1", "yes", "y"}:
+                continue
+            rows.append(
+                {
+                    "source": (row.get("source") or "").strip(),
+                    "category": (row.get("category") or "").strip(),
+                    "method": (row.get("method") or "").strip(),
+                    "recommendation": (row.get("recommendation") or "").strip(),
+                    "url": (row.get("url") or "").strip(),
+                    "notes": (row.get("notes") or "").strip(),
+                    "status": (row.get("status") or "").strip(),
+                }
+            )
+    return [row for row in rows if row["source"] and row["url"]]
+
+
+def build_external_sources_payload(sources: list[dict[str, str]], generated_at: datetime) -> dict[str, Any]:
+    categories = Counter(source["category"] or "기타" for source in sources)
+    return {
+        "generated_at": generated_at.isoformat(),
+        "source_count": len(sources),
+        "categories": dict(categories.most_common()),
+        "sources": sources,
     }
 
 
@@ -415,6 +448,28 @@ def render_index_html() -> str:
       flex-wrap: wrap;
       gap: 10px;
     }
+    .view-toggle {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .view-toggle button {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+      padding: 9px 13px;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .view-toggle button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
     .metric, .panel, .post, .section-card {
       border: 1px solid var(--line);
       background: var(--surface);
@@ -619,6 +674,54 @@ def render_index_html() -> str:
       border: 1px solid rgba(14, 116, 144, 0.16);
       background: linear-gradient(180deg, rgba(240, 249, 255, 0.88), rgba(255,250,243,0.96));
     }
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .source-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.72);
+    }
+    .source-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .source-card p {
+      margin: 0;
+      color: #374151;
+      line-height: 1.55;
+      font-size: 0.9rem;
+    }
+    .source-actions {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+    .source-link.secondary {
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+    }
     .dc-post {
       position: relative;
       overflow: hidden;
@@ -648,8 +751,38 @@ def render_index_html() -> str:
       text-align: center;
       color: var(--muted);
     }
+    body.view-mobile .shell {
+      width: min(460px, calc(100% - 20px));
+      padding-top: 20px;
+    }
+    body.view-mobile .layout {
+      grid-template-columns: 1fr;
+    }
+    body.view-mobile .panel {
+      position: static;
+    }
+    body.view-mobile .posts,
+    body.view-mobile .source-grid {
+      grid-template-columns: 1fr;
+    }
+    body.view-mobile .hero {
+      padding: 22px;
+    }
+    body.view-desktop .shell {
+      width: min(1280px, calc(100% - 32px));
+    }
+    body.view-desktop .layout {
+      grid-template-columns: 320px 1fr;
+    }
+    body.view-desktop .posts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    body.view-desktop .source-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
     @media (max-width: 1180px) {
       .posts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 920px) {
       .layout { grid-template-columns: 1fr; }
@@ -672,6 +805,10 @@ def render_index_html() -> str:
         <article class="metric"><label>마지막 갱신</label><strong id="metric-updated" style="font-size:1rem">-</strong></article>
       </div>
       <div class="quick-links" id="quick-links"></div>
+      <div class="view-toggle" aria-label="화면 최적화 전환">
+        <button type="button" data-view-mode="desktop">PC 최적화</button>
+        <button type="button" data-view-mode="mobile">모바일 최적화</button>
+      </div>
     </section>
 
     <section class="layout">
@@ -743,6 +880,16 @@ def render_index_html() -> str:
           <div class="posts" id="dc-posts"></div>
         </section>
 
+        <section class="section-card" id="external-sources-board">
+          <div class="section-head">
+            <div>
+              <h2>외부 소스 링크 허브</h2>
+              <div class="section-meta" id="external-sources-meta">불러오는 중...</div>
+            </div>
+          </div>
+          <div class="source-grid" id="external-sources"></div>
+        </section>
+
         <section class="section-card" id="date-board">
           <div class="section-head">
             <div>
@@ -766,8 +913,8 @@ def render_index_html() -> str:
   </div>
 
   <script>
-    const state = { archive: null, filtered: [] };
-    const ui = { activeDateKey: "" };
+    const state = { archive: null, dc: null, externalSources: null, filtered: [] };
+    const ui = { activeDateKey: "", viewMode: localStorage.getItem("blogTrackerViewMode") || "desktop" };
     const els = {
       posts: document.getElementById("posts"),
       priorityPosts: document.getElementById("priority-posts"),
@@ -776,6 +923,8 @@ def render_index_html() -> str:
       priorityRosterMeta: document.getElementById("priority-roster-meta"),
       dcPosts: document.getElementById("dc-posts"),
       dcMeta: document.getElementById("dc-meta"),
+      externalSources: document.getElementById("external-sources"),
+      externalSourcesMeta: document.getElementById("external-sources-meta"),
       tabPosts: document.getElementById("tab-posts"),
       tabMeta: document.getElementById("tab-meta"),
       dateTabs: document.getElementById("date-tabs"),
@@ -792,6 +941,7 @@ def render_index_html() -> str:
       metricClasses: document.getElementById("metric-classes"),
       metricAuthors: document.getElementById("metric-authors"),
       metricUpdated: document.getElementById("metric-updated"),
+      viewModeButtons: document.querySelectorAll("[data-view-mode]"),
     };
 
     function uniqueSorted(values) {
@@ -889,9 +1039,20 @@ def render_index_html() -> str:
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
       links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
+      links.push(buildQuickLink("외부 소스 링크 허브", { section: "external-sources" }, "#external-sources-board"));
       links.push('<a class="quick-link" href="./semiconductor-gallery.html">디시 갤러리 모음</a>');
       links.push('<a class="quick-link" href="./analysis.html">흐름 분석 보드</a>');
       els.quickLinks.innerHTML = links.join("");
+    }
+
+    function setViewMode(mode) {
+      ui.viewMode = mode === "mobile" ? "mobile" : "desktop";
+      document.body.classList.toggle("view-mobile", ui.viewMode === "mobile");
+      document.body.classList.toggle("view-desktop", ui.viewMode === "desktop");
+      localStorage.setItem("blogTrackerViewMode", ui.viewMode);
+      els.viewModeButtons.forEach((button) => {
+        button.classList.toggle("active", button.getAttribute("data-view-mode") === ui.viewMode);
+      });
     }
 
     function renderPostCard(post) {
@@ -978,6 +1139,30 @@ def render_index_html() -> str:
       els.dcPosts.innerHTML = posts.map((post) => renderDcPostCard(post)).join("");
     }
 
+    function renderExternalSources() {
+      const sources = state.externalSources?.sources || [];
+      els.externalSourcesMeta.textContent = `링크 ${sources.length}개 · 텔레그램 발송 제외`;
+      if (!sources.length) {
+        els.externalSources.innerHTML = '<div class="source-card empty">등록된 외부 소스가 없습니다.</div>';
+        return;
+      }
+      els.externalSources.innerHTML = sources.map((source) => `
+        <article class="source-card">
+          <div class="post-top">
+            <span class="badge">${escapeHtml(source.category || "기타")}</span>
+            <span class="chip">${escapeHtml(source.method || "링크")}</span>
+            <span class="chip">${escapeHtml(source.recommendation || "검토")}</span>
+          </div>
+          <h3>${escapeHtml(source.source)}</h3>
+          <p>${escapeHtml(source.notes || source.status || "원문 링크로 이동합니다.")}</p>
+          <div class="source-actions">
+            <a class="source-link" href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">소스 페이지 열기</a>
+            ${source.status ? `<span class="source-link secondary">${escapeHtml(source.status)}</span>` : ""}
+          </div>
+        </article>
+      `).join("");
+    }
+
     function renderDateTabs() {
       const buckets = getDateBuckets();
       if (!ui.activeDateKey && buckets.length) ui.activeDateKey = buckets[0].key;
@@ -1036,12 +1221,14 @@ def render_index_html() -> str:
     }
 
     async function boot() {
-      const [archiveResponse, dcResponse] = await Promise.all([
+      const [archiveResponse, dcResponse, externalSourcesResponse] = await Promise.all([
         fetch("./data/archive.json"),
         fetch("./data/dc_semiconductor.json"),
+        fetch("./data/external_sources.json"),
       ]);
       state.archive = await archiveResponse.json();
       state.dc = await dcResponse.json();
+      state.externalSources = await externalSourcesResponse.json();
       fillSelect(els.classification, uniqueSorted(state.archive.posts.map((post) => post.classification)));
       fillSelect(els.group, uniqueSorted(state.archive.posts.map((post) => post.group_name)));
       fillSelect(els.author, uniqueSorted(state.archive.posts.map((post) => post.display_name)));
@@ -1054,11 +1241,16 @@ def render_index_html() -> str:
       renderPriorityBoard();
       renderPriorityRoster();
       renderDcBoard();
+      renderExternalSources();
+      setViewMode(ui.viewMode);
       applyUrlFilters();
       renderDateTabs();
       applyFilters();
       [els.classification, els.group, els.author, els.hasContent, els.priorityOnly].forEach((el) => el.addEventListener("change", applyFilters));
       els.search.addEventListener("input", applyFilters);
+      els.viewModeButtons.forEach((button) => {
+        button.addEventListener("click", () => setViewMode(button.getAttribute("data-view-mode") || "desktop"));
+      });
     }
 
     boot().catch((error) => {
@@ -1086,10 +1278,16 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     merged_posts = merge_archive(existing_posts, payloads, priority_bloggers=priority_bloggers, max_posts=max_posts)
     archive_payload = build_archive_payload(merged_posts, generated_at=generated_at, priority_bloggers=priority_bloggers)
     dc_payload = load_dc_payload(output_dir, generated_at=generated_at)
+    external_sources = load_external_sources(ROOT / "config" / "external_sources.csv")
+    external_sources_payload = build_external_sources_payload(external_sources, generated_at=generated_at)
 
     archive_path.write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "archive.json").write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "dc_semiconductor.json").write_text(json.dumps(dc_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (site_data_dir / "external_sources.json").write_text(
+        json.dumps(external_sources_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     (site_dir / "index.html").write_text(render_index_html(), encoding="utf-8")
     (site_dir / "semiconductor-gallery.html").write_text(render_dc_gallery_html(), encoding="utf-8")
     build_analysis_files(output_dir=output_dir, site_data_dir=site_data_dir, site_dir=site_dir, archive_payload=archive_payload, generated_at=generated_at)

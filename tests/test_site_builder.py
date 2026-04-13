@@ -95,8 +95,14 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
     assert archive["post_count"] == 1
     assert (site_dir / "index.html").exists()
     assert (site_dir / "data" / "archive.json").exists()
+    assert (site_dir / "data" / "external_sources.json").exists()
     assert json.loads((site_dir / "data" / "archive.json").read_text(encoding="utf-8"))["posts"][0]["guid"] == "post-1"
+    external_sources = json.loads((site_dir / "data" / "external_sources.json").read_text(encoding="utf-8"))
+    assert "sources" in external_sources
     html = (site_dir / "index.html").read_text(encoding="utf-8")
     assert "우선 블로거 전용 보드" in html
     assert "오늘" in html
     assert "우선 블로거 목록" in html
+    assert "외부 소스 링크 허브" in html
+    assert "PC 최적화" in html
+    assert "모바일 최적화" in html
