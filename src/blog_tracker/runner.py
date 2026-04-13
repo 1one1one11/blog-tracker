@@ -16,6 +16,7 @@ from blog_tracker.summarizer import Summarizer
 from blog_tracker.telegram import build_digest, build_digest_messages, send_digest_messages
 
 TELEGRAM_EXCLUDED_GROUPS = {"일상"}
+TELEGRAM_DC_POST_LIMIT = 5
 
 
 def format_console_report(label: str, posts) -> str:
@@ -196,12 +197,13 @@ def main() -> int:
     fresh_posts = [post for post in enriched_posts if post.guid not in seen_guids]
     digest_posts = [post for post in fresh_posts if post.group_name not in TELEGRAM_EXCLUDED_GROUPS]
     digest = build_digest(digest_posts, dashboard_url=settings.dashboard_url) if digest_posts else ""
+    telegram_dc_posts = dc_posts[:TELEGRAM_DC_POST_LIMIT]
     digest_messages = build_digest_messages(
         digest_posts,
-        dc_posts=dc_posts,
+        dc_posts=telegram_dc_posts,
         priority_bloggers=priority_bloggers,
         dashboard_url=settings.dashboard_url,
-    ) if (digest_posts or dc_posts) else []
+    ) if (digest_posts or telegram_dc_posts) else []
 
     generated_at = datetime.now().astimezone()
     timestamp = generated_at.strftime("%Y%m%d_%H%M%S")
@@ -226,6 +228,7 @@ def main() -> int:
     print(f"Priority bloggers total: {len([post for post in enriched_posts if post.blog_id in priority_bloggers])}")
     print(f"Priority bloggers fresh: {len([post for post in fresh_posts if post.blog_id in priority_bloggers])}")
     print(f"Curated DC posts: {len(dc_posts)}")
+    print(f"Telegram DC posts: {len(telegram_dc_posts)}")
     print(f"Digest path: {digest_path}")
     print(f"Digest JSON path: {digest_json_path}")
     print(f"Telegram message count: {len(digest_messages)}")
