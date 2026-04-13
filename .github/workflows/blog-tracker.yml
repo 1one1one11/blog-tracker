@@ -52,6 +52,7 @@ jobs:
         run: python scripts/sync_followings.py --url "$NAVER_FOLLOWINGS_URL"
 
       - name: Run tracker
+        continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -74,6 +75,7 @@ jobs:
         with:
           name: blog-digest
           path: output/
+          if-no-files-found: ignore
 
       - name: Configure Pages
         if: always()
