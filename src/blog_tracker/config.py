@@ -12,6 +12,12 @@ from blog_tracker.models import BlogSource
 ROOT = Path(__file__).resolve().parents[2]
 
 
+@dataclass(frozen=True, slots=True)
+class TelegramDestination:
+    bot_token: str
+    chat_id: str
+
+
 @dataclass(slots=True)
 class Settings:
     root_dir: Path
@@ -24,6 +30,7 @@ class Settings:
     telegram_bot_token: str
     telegram_bot_tokens: list[str]
     telegram_chat_id: str
+    telegram_destinations: list[TelegramDestination]
     dashboard_url: str
     openai_api_key: str
     openai_model: str
@@ -45,6 +52,33 @@ def _unique_nonempty(values: list[str]) -> list[str]:
     return unique
 
 
+def _parse_extra_destinations(value: str) -> list[TelegramDestination]:
+    destinations: list[TelegramDestination] = []
+    for item in _split_env_list(value):
+        if "|" in item:
+            bot_token, chat_id = item.split("|", 1)
+        elif "::" in item:
+            bot_token, chat_id = item.split("::", 1)
+        else:
+            continue
+        bot_token = bot_token.strip()
+        chat_id = chat_id.strip()
+        if bot_token and chat_id:
+            destinations.append(TelegramDestination(bot_token=bot_token, chat_id=chat_id))
+    return destinations
+
+
+def _unique_destinations(destinations: list[TelegramDestination]) -> list[TelegramDestination]:
+    seen: set[tuple[str, str]] = set()
+    unique: list[TelegramDestination] = []
+    for destination in destinations:
+        key = (destination.bot_token, destination.chat_id)
+        if key not in seen:
+            seen.add(key)
+            unique.append(destination)
+    return unique
+
+
 def load_settings() -> Settings:
     load_dotenv(ROOT / ".env")
     runtime_dir = ROOT / "data" / "runtime"
@@ -52,10 +86,19 @@ def load_settings() -> Settings:
     output_dir = ROOT / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     telegram_bot_tokens = _unique_nonempty(
         [telegram_bot_token]
         + _split_env_list(os.getenv("TELEGRAM_BOT_TOKENS", ""))
         + _split_env_list(os.getenv("TELEGRAM_EXTRA_BOT_TOKENS", ""))
+    )
+    telegram_destinations = [
+        TelegramDestination(bot_token=bot_token, chat_id=telegram_chat_id)
+        for bot_token in telegram_bot_tokens
+        if telegram_chat_id
+    ]
+    telegram_destinations = _unique_destinations(
+        telegram_destinations + _parse_extra_destinations(os.getenv("TELEGRAM_EXTRA_DESTINATIONS", ""))
     )
     return Settings(
         root_dir=ROOT,
@@ -67,7 +110,8 @@ def load_settings() -> Settings:
         days_back=int(os.getenv("BLOG_TRACKER_DAYS_BACK", "4")),
         telegram_bot_token=telegram_bot_token,
         telegram_bot_tokens=telegram_bot_tokens,
-        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+        telegram_chat_id=telegram_chat_id,
+        telegram_destinations=telegram_destinations,
         dashboard_url=os.getenv("BLOG_TRACKER_DASHBOARD_URL", "https://1one1one11.github.io/blog-tracker/").strip(),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_model=os.getenv("OPENAI_MODEL", "").strip(),
