@@ -450,24 +450,32 @@ def render_index_html() -> str:
     }
     .view-toggle {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 16px;
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 20;
+      gap: 4px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,250,243,0.9);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
     }
     .view-toggle button {
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.75);
+      border: 0;
+      background: transparent;
       color: var(--text);
-      padding: 9px 13px;
+      padding: 8px 12px;
       border-radius: 999px;
       font: inherit;
-      font-size: 0.86rem;
+      font-size: 0.8rem;
       font-weight: 800;
       cursor: pointer;
+      white-space: nowrap;
     }
     .view-toggle button.active {
       background: var(--accent);
-      border-color: var(--accent);
       color: #fff;
     }
     .metric, .panel, .post, .section-card {
@@ -790,10 +798,22 @@ def render_index_html() -> str:
       .shell { width: min(100% - 20px, 1280px); padding-top: 20px; }
       .hero { padding: 22px; }
       .posts { grid-template-columns: 1fr; }
+      .view-toggle {
+        top: 10px;
+        right: 10px;
+      }
+      .view-toggle button {
+        padding: 7px 9px;
+        font-size: 0.76rem;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="view-toggle" aria-label="화면 최적화 전환">
+    <button type="button" data-view-mode="desktop">PC 최적화</button>
+    <button type="button" data-view-mode="mobile">모바일 최적화</button>
+  </div>
   <div class="shell">
     <section class="hero">
       <h1>Research Briefing Archive</h1>
@@ -805,10 +825,6 @@ def render_index_html() -> str:
         <article class="metric"><label>마지막 갱신</label><strong id="metric-updated" style="font-size:1rem">-</strong></article>
       </div>
       <div class="quick-links" id="quick-links"></div>
-      <div class="view-toggle" aria-label="화면 최적화 전환">
-        <button type="button" data-view-mode="desktop">PC 최적화</button>
-        <button type="button" data-view-mode="mobile">모바일 최적화</button>
-      </div>
     </section>
 
     <section class="layout">
