@@ -1,0 +1,15 @@
+blog_id,display_name,blog_title,group_name,relationship,enabled,rss_url,notes
+borich7,부읽남,부동산 읽어주는 남자,부동산,수동추가,true,,수도권 분석
+nanucompany,너나위,너나위,부동산,수동추가,true,,투자 원칙 중심
+kwakhakryeol,빠숑,빠숑 김학렬,부동산,수동추가,true,,수도권/서울 재건축 분석
+lemgoon,렘군,렘군,부동산,수동추가,true,,지방 부동산/실거주 투자
+chaesu_wook,채상욱,채상욱,부동산,수동추가,true,,부동산 데이터/애널리스트 관점
+sosumongky,소수몽키,소수몽키,배당/ETF/금융상품,수동추가,true,,ETF/배당
+khanquant,강환국,강환국,배당/ETF/금융상품,수동추가,true,,퀀트/자산배분
+systrader79,systrader79,systrader79,배당/ETF/금융상품,수동추가,true,,시스템트레이딩/자산배분
+hongchunwook,홍춘욱,홍춘욱,배당/ETF/금융상품,수동추가,true,,매크로/글로벌 자산배분
+baekinjune,메디게이트 류근원,메디게이트 류근원,바이오/헬스케어,수동추가,true,,바이오 임상 분석
+biospectator,바이오스펙테이터,바이오스펙테이터,바이오/헬스케어,수동추가,true,,바이오 딥다이브
+biotk_invest,바이오투자자 K,바이오투자자 K,바이오/헬스케어,수동추가,true,,임상 단계별 분석
+peterlynch_kr,피터린치따라하기,피터린치따라하기,미국주식/글로벌,수동추가,true,,미국 성장주 롱텀
+usstock_retire,미국주식으로은퇴하기,미국주식으로은퇴하기,미국주식/글로벌,수동추가,true,,미국 배당/성장주
