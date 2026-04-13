@@ -232,7 +232,12 @@ def main() -> int:
 
     should_persist_state = True
     if digest_messages and not args.dry_run:
-        results = send_digest_messages(settings.telegram_bot_token, settings.telegram_chat_id, digest_messages)
+        results = send_digest_messages(
+            settings.telegram_bot_token,
+            settings.telegram_chat_id,
+            digest_messages,
+            dashboard_url=settings.dashboard_url,
+        )
         all_ok = all(result["ok"] for result in results)
         print(f"Telegram success: {all_ok}")
         should_persist_state = all_ok
