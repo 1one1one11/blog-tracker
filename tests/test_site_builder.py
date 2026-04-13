@@ -103,6 +103,7 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
     assert "우선 블로거 전용 보드" in html
     assert "오늘" in html
     assert "우선 블로거 목록" in html
+    assert "일상 글" in html
     assert "외부 소스 링크 허브" in html
     assert "PC 최적화" in html
     assert "모바일 최적화" in html

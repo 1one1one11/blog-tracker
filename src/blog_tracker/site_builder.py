@@ -12,6 +12,7 @@ from blog_tracker.config import load_priority_bloggers
 from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconductor_posts
 
 ROOT = Path(__file__).resolve().parents[2]
+LIFE_ONLY_BLOG_IDS = {"ruffian71"}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -23,6 +24,9 @@ def _normalize_post(post: dict[str, Any], priority_bloggers: set[str]) -> dict[s
     normalized["blog_id"] = normalized.get("blog_id") or normalized.get("display_name") or normalized.get("guid") or ""
     normalized["classification"] = normalized.get("classification") or normalized.get("group_name") or "미분류"
     normalized["group_name"] = normalized.get("group_name") or "미분류"
+    if normalized["blog_id"] in LIFE_ONLY_BLOG_IDS:
+        normalized["classification"] = "일상"
+        normalized["group_name"] = "일상"
     normalized["display_name"] = normalized.get("display_name") or normalized.get("blog_id") or "알 수 없음"
     normalized["blog_title"] = normalized.get("blog_title") or normalized["display_name"]
     normalized["tags"] = list(normalized.get("tags") or [])
@@ -682,6 +686,10 @@ def render_index_html() -> str:
       border: 1px solid rgba(14, 116, 144, 0.16);
       background: linear-gradient(180deg, rgba(240, 249, 255, 0.88), rgba(255,250,243,0.96));
     }
+    .life-board {
+      border: 1px solid rgba(107, 114, 128, 0.18);
+      background: linear-gradient(180deg, rgba(243, 244, 246, 0.9), rgba(255,250,243,0.96));
+    }
     .source-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -885,6 +893,16 @@ def render_index_html() -> str:
           <div class="chips" id="priority-roster"></div>
         </section>
 
+        <section class="section-card life-board" id="life-board">
+          <div class="section-head">
+            <div>
+              <h2>일상 글</h2>
+              <div class="section-meta" id="life-meta">불러오는 중...</div>
+            </div>
+          </div>
+          <div class="posts" id="life-posts"></div>
+        </section>
+
         <section class="section-card" id="dc-board">
           <div class="section-head">
             <div>
@@ -937,6 +955,8 @@ def render_index_html() -> str:
       priorityMeta: document.getElementById("priority-meta"),
       priorityRoster: document.getElementById("priority-roster"),
       priorityRosterMeta: document.getElementById("priority-roster-meta"),
+      lifePosts: document.getElementById("life-posts"),
+      lifeMeta: document.getElementById("life-meta"),
       dcPosts: document.getElementById("dc-posts"),
       dcMeta: document.getElementById("dc-meta"),
       externalSources: document.getElementById("external-sources"),
@@ -1054,6 +1074,7 @@ def render_index_html() -> str:
       });
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
+      links.push(buildQuickLink("일상 글 모아보기", { section: "life" }, "#life-board"));
       links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
       links.push(buildQuickLink("외부 소스 링크 허브", { section: "external-sources" }, "#external-sources-board"));
       links.push('<a class="quick-link" href="./semiconductor-gallery.html">디시 갤러리 모음</a>');
@@ -1069,6 +1090,14 @@ def render_index_html() -> str:
       els.viewModeButtons.forEach((button) => {
         button.classList.toggle("active", button.getAttribute("data-view-mode") === ui.viewMode);
       });
+    }
+
+    function isLifePost(post) {
+      return (post.group_name || "").trim() === "일상";
+    }
+
+    function investmentPosts() {
+      return state.archive.posts.filter((post) => !isLifePost(post));
     }
 
     function renderPostCard(post) {
@@ -1103,7 +1132,7 @@ def render_index_html() -> str:
     }
 
     function renderPriorityBoard() {
-      const priorityPosts = state.archive.posts.filter((post) => post.is_priority).slice(0, 12);
+      const priorityPosts = investmentPosts().filter((post) => post.is_priority).slice(0, 12);
       els.priorityMeta.textContent = `우선 블로거 글 ${priorityPosts.length}건`;
       renderPostGrid(els.priorityPosts, priorityPosts, "우선 블로거 글이 없습니다.");
     }
@@ -1155,6 +1184,12 @@ def render_index_html() -> str:
       els.dcPosts.innerHTML = posts.map((post) => renderDcPostCard(post)).join("");
     }
 
+    function renderLifeBoard() {
+      const posts = state.archive.posts.filter((post) => isLifePost(post)).slice(0, 24);
+      els.lifeMeta.textContent = `일상 글 ${posts.length}건 · 일반 투자 보드에서는 제외`;
+      renderPostGrid(els.lifePosts, posts, "일상 글이 없습니다.");
+    }
+
     function renderExternalSources() {
       const sources = state.externalSources?.sources || [];
       els.externalSourcesMeta.textContent = `링크 ${sources.length}개 · 텔레그램 발송 제외`;
@@ -1184,11 +1219,11 @@ def render_index_html() -> str:
       if (!ui.activeDateKey && buckets.length) ui.activeDateKey = buckets[0].key;
       const selected = buckets.find((bucket) => bucket.key === ui.activeDateKey) || buckets[0];
       els.dateTabs.innerHTML = buckets.map((bucket) => {
-        const count = state.archive.posts.filter((post) => localDateKey(post.published_at) === bucket.key).length;
+        const count = investmentPosts().filter((post) => localDateKey(post.published_at) === bucket.key).length;
         const active = bucket.key === selected.key ? " active" : "";
         return `<button class="tab-btn${active}" type="button" data-date-key="${bucket.key}">${bucket.label} ${count}</button>`;
       }).join("");
-      const tabPosts = state.archive.posts.filter((post) => localDateKey(post.published_at) === selected.key);
+      const tabPosts = investmentPosts().filter((post) => localDateKey(post.published_at) === selected.key);
       els.tabMeta.textContent = `${selected.label} 기준 ${tabPosts.length}건`;
       renderPostGrid(els.tabPosts, tabPosts, `${selected.label} 글이 없습니다.`);
       els.dateTabs.querySelectorAll("[data-date-key]").forEach((button) => {
@@ -1220,7 +1255,8 @@ def render_index_html() -> str:
       const author = els.author.value;
       const hasContent = els.hasContent.value;
       const priorityOnly = els.priorityOnly.value;
-      state.filtered = state.archive.posts.filter((post) => {
+      const basePosts = investmentPosts();
+      state.filtered = basePosts.filter((post) => {
         if (classification && post.classification !== classification) return false;
         if (group && post.group_name !== group) return false;
         if (author && post.display_name !== author) return false;
@@ -1232,7 +1268,7 @@ def render_index_html() -> str:
         }
         return true;
       });
-      els.resultsMeta.textContent = `${state.filtered.length}건 표시 / 누적 ${state.archive.posts.length}건`;
+      els.resultsMeta.textContent = `${state.filtered.length}건 표시 / 투자 보드 ${basePosts.length}건`;
       renderPostGrid(els.posts, state.filtered, "조건에 맞는 결과가 없습니다.");
     }
 
@@ -1245,9 +1281,10 @@ def render_index_html() -> str:
       state.archive = await archiveResponse.json();
       state.dc = await dcResponse.json();
       state.externalSources = await externalSourcesResponse.json();
-      fillSelect(els.classification, uniqueSorted(state.archive.posts.map((post) => post.classification)));
-      fillSelect(els.group, uniqueSorted(state.archive.posts.map((post) => post.group_name)));
-      fillSelect(els.author, uniqueSorted(state.archive.posts.map((post) => post.display_name)));
+      const basePosts = investmentPosts();
+      fillSelect(els.classification, uniqueSorted(basePosts.map((post) => post.classification)));
+      fillSelect(els.group, uniqueSorted(basePosts.map((post) => post.group_name)));
+      fillSelect(els.author, uniqueSorted(basePosts.map((post) => post.display_name)));
       els.metricPosts.textContent = state.archive.post_count.toLocaleString("ko-KR");
       els.metricClasses.textContent = Object.keys(state.archive.classifications || {}).length.toLocaleString("ko-KR");
       els.metricAuthors.textContent = Object.keys(state.archive.authors || {}).length.toLocaleString("ko-KR");
@@ -1257,6 +1294,7 @@ def render_index_html() -> str:
       renderPriorityBoard();
       renderPriorityRoster();
       renderDcBoard();
+      renderLifeBoard();
       renderExternalSources();
       setViewMode(ui.viewMode);
       applyUrlFilters();
