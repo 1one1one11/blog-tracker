@@ -22,7 +22,7 @@ def _build_header(dashboard_url: str | None = None) -> str:
 
 
 def _build_dashboard_link(dashboard_url: str) -> str:
-    return f'<a href="{html.escape(dashboard_url)}">{DASHBOARD_LINK_LABEL}</a>'
+    return f"{DASHBOARD_LINK_LABEL}: {html.escape(dashboard_url)}"
 
 
 def _build_footer(dashboard_url: str | None = None) -> str:

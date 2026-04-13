@@ -23,10 +23,11 @@ def test_build_digest_keeps_all_posts():
     posts = [_make_post(1), _make_post(2)]
     digest = build_digest(posts, dashboard_url="https://example.com/dashboard")
 
-    assert digest.count("<a href=") == 4
+    assert digest.count("<a href=") == 2
     assert digest.count("대시보드 홈페이지 바로가기") == 2
+    assert digest.count("https://example.com/dashboard") == 2
     assert digest.startswith(HEADER)
-    assert digest.endswith('대시보드 홈페이지 바로가기</a>')
+    assert digest.endswith("https://example.com/dashboard")
 
 
 def test_build_digest_messages_splits_without_dropping_posts():
@@ -35,9 +36,10 @@ def test_build_digest_messages_splits_without_dropping_posts():
 
     assert len(messages) > 1
     assert sum(message.count("대시보드 홈페이지 바로가기") for message in messages) == len(messages) * 2
-    assert sum(message.count("<a href=") for message in messages) == len(posts) + (len(messages) * 2)
+    assert sum(message.count("https://example.com/dashboard") for message in messages) == len(messages) * 2
+    assert sum(message.count("<a href=") for message in messages) == len(posts)
     assert all(len(message) <= 500 for message in messages)
-    assert all(message.endswith('대시보드 홈페이지 바로가기</a>') for message in messages)
+    assert all(message.endswith("https://example.com/dashboard") for message in messages)
 
 
 def test_send_digest_attaches_dashboard_button(monkeypatch):
