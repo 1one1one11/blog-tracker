@@ -11,3 +11,27 @@ KIND/거래소 공시,공시/API 검토,API 또는 스크래핑 검토,높음,ht
 네이버 카페,커뮤니티,스크래핑/로그인 가능성,낮음,https://section.cafe.naver.com/,로그인·권한·구조 변경 리스크가 있어 우선 링크 확인용입니다.,주의,true
 텔레그램 공개 채널,커뮤니티/RSSHub,RSSHub 또는 별도 수집,검토,https://web.telegram.org/,루머성 소스 필터가 필요하므로 자동 발송에는 넣지 않습니다.,주의,true
 X/Twitter,소셜/API,API 또는 서드파티,검토,https://x.com/,정책·비용 변경 리스크가 있어 핵심 계정만 후보로 관리합니다.,주의,true
+삼프로TV,국내 경제/YouTube,YouTube,높음,https://www.youtube.com/@3protv,국내 매크로·산업·기업 인터뷰를 폭넓게 훑는 핵심 경제 채널입니다.,선별 링크,true
+언더스탠딩,국내 경제/YouTube,YouTube,높음,https://www.youtube.com/@understanding.,산업 구조·경제 이슈를 긴 호흡으로 설명하는 채널입니다.,선별 링크,true
+슈카월드,국내 경제/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%EC%8A%88%EC%B9%B4%EC%9B%94%EB%93%9C,대중 경제 이슈와 시장 관심사를 빠르게 파악하는 용도입니다.,선별 링크,true
+김작가TV,국내 투자/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%EA%B9%80%EC%9E%91%EA%B0%80TV,국내 투자자 인터뷰와 시장 관점 확인용 채널입니다.,선별 링크,true
+박곰희TV,금융상품/YouTube,YouTube,높음,https://www.youtube.com/channel/UCr7XsrSrvAn_WcU4kF99bbQ,ETF·연금·자산배분 등 개인 금융상품 이해에 유용한 채널입니다.,선별 링크,true
+소수몽키,미국주식/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%EC%86%8C%EC%88%98%EB%AA%BD%ED%82%A4,미국주식·배당·ETF 관점 확인용 채널입니다.,선별 링크,true
+월급쟁이부자들TV,부동산/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%EC%9B%94%EA%B8%89%EC%9F%81%EC%9D%B4%EB%B6%80%EC%9E%90%EB%93%A4TV,부동산 실전 투자자 인터뷰와 시장 분위기 확인용입니다.,선별 링크,true
+부읽남,부동산/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%EB%B6%80%EC%9D%BD%EB%82%A8,부동산 대중 채널로 정책·수도권 관심도 확인용입니다.,선별 링크,true
+이효석아카데미,매크로/YouTube,YouTube 검색,높음,https://www.youtube.com/results?search_query=%EC%9D%B4%ED%9A%A8%EC%84%9D%EC%95%84%EC%B9%B4%EB%8D%B0%EB%AF%B8,글로벌 매크로·시장 구조 관점 확인용입니다.,선별 링크,true
+홍춘욱,매크로/YouTube,YouTube 검색,중간,https://www.youtube.com/results?search_query=%ED%99%8D%EC%B6%98%EC%9A%B1+%EA%B2%BD%EC%A0%9C,국내외 경기·자산배분 관점 확인용입니다.,선별 링크,true
+한경 글로벌마켓,글로벌 시장/뉴스,웹,높음,https://www.hankyung.com/globalmarket,미국주식·글로벌 시장 흐름을 빠르게 확인하는 뉴스 허브입니다.,선별 링크,true
+연합인포맥스,금융시장/뉴스,웹,높음,https://news.einfomax.co.kr/,채권·외환·거시 금융시장 뉴스 확인용입니다.,선별 링크,true
+더벨,기업/딜/리서치,웹,높음,https://www.thebell.co.kr/,기업 재무·자본시장·딜 흐름을 보는 데 유용한 소스입니다.,선별 링크,true
+바이오스펙테이터,바이오/뉴스,웹,높음,https://www.biospectator.com/,바이오 임상·딜·기술이전 뉴스 확인용입니다.,선별 링크,true
+히트뉴스,바이오/헬스케어,웹,중간,https://www.hitnews.co.kr/,제약·바이오 정책과 업계 뉴스 확인용입니다.,선별 링크,true
+메디게이트뉴스,의료/헬스케어,웹,중간,https://www.medigatenews.com/,의료계·헬스케어 제도 이슈 확인용입니다.,선별 링크,true
+팜뉴스,제약/바이오,웹,중간,https://www.pharmnews.com/,국내 제약·바이오 산업 뉴스 보강용입니다.,선별 링크,true
+한국은행,매크로/공식 데이터,웹,높음,https://www.bok.or.kr/portal/main/main.do,금리·통화정책·경제통계 공식 확인용입니다.,공식 데이터,true
+FRED,글로벌 매크로/공식 데이터,웹/API,높음,https://fred.stlouisfed.org/,미국·글로벌 경제지표 확인용 공식 데이터 허브입니다.,공식 데이터,true
+SEC EDGAR,미국 공시/공식 데이터,웹/API,높음,https://www.sec.gov/edgar/search/,미국 상장사 공시 확인용 공식 소스입니다.,공식 데이터,true
+한국부동산원 R-ONE,부동산/공식 데이터,웹,높음,https://www.reb.or.kr/r-one/portal/main/indexPage.do,주택 가격·거래·부동산 통계 확인용 공식 데이터 소스입니다.,공식 데이터,true
+KB부동산,부동산/데이터,웹,중간,https://kbland.kr/,시세·지역별 부동산 데이터 확인용입니다.,선별 링크,true
+부동산R114,부동산/데이터,웹,중간,https://www.r114.com/,아파트·분양·시장 자료 확인용입니다.,선별 링크,true
+TradingView,시장 차트/도구,웹,중간,https://kr.tradingview.com/,차트·섹터·시장 가격 흐름 확인용입니다.,도구,true
