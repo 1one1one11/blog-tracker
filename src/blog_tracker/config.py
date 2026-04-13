@@ -22,11 +22,27 @@ class Settings:
     timezone: str
     days_back: int
     telegram_bot_token: str
+    telegram_bot_tokens: list[str]
     telegram_chat_id: str
+    dashboard_url: str
     openai_api_key: str
     openai_model: str
     gemini_api_key: str
     gemini_model: str
+
+
+def _split_env_list(value: str) -> list[str]:
+    return [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+
+
+def _unique_nonempty(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
 
 
 def load_settings() -> Settings:
@@ -35,6 +51,12 @@ def load_settings() -> Settings:
     runtime_dir.mkdir(parents=True, exist_ok=True)
     output_dir = ROOT / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_bot_tokens = _unique_nonempty(
+        [telegram_bot_token]
+        + _split_env_list(os.getenv("TELEGRAM_BOT_TOKENS", ""))
+        + _split_env_list(os.getenv("TELEGRAM_EXTRA_BOT_TOKENS", ""))
+    )
     return Settings(
         root_dir=ROOT,
         blogs_csv_path=ROOT / "config" / "blogs.csv",
@@ -43,8 +65,10 @@ def load_settings() -> Settings:
         output_dir=output_dir,
         timezone=os.getenv("BLOG_TRACKER_TIMEZONE", "Asia/Seoul"),
         days_back=int(os.getenv("BLOG_TRACKER_DAYS_BACK", "4")),
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
+        telegram_bot_token=telegram_bot_token,
+        telegram_bot_tokens=telegram_bot_tokens,
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+        dashboard_url=os.getenv("BLOG_TRACKER_DASHBOARD_URL", "https://1one1one11.github.io/blog-tracker/").strip(),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_model=os.getenv("OPENAI_MODEL", "").strip(),
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
