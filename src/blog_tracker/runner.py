@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from blog_tracker.classifier import classify_post
-from blog_tracker.config import load_blog_sources, load_priority_bloggers, load_settings
+from blog_tracker.config import ensure_priority_blog_sources, load_blog_sources, load_priority_bloggers, load_settings
 from blog_tracker.dc_gallery import CURATED_GALLERIES, DcPost, fetch_curated_dc_bundle
 from blog_tracker.reporting import build_digest_payload, write_digest_payload
 from blog_tracker.rss import fetch_post_content, fetch_recent_posts
@@ -163,8 +163,8 @@ def main() -> int:
     args = parser.parse_args()
 
     settings = load_settings()
-    sources = load_blog_sources(settings.blogs_csv_path)
     priority_bloggers = load_priority_bloggers(settings.priority_bloggers_path)
+    sources = ensure_priority_blog_sources(load_blog_sources(settings.blogs_csv_path), priority_bloggers)
     seen_guids = load_seen_guids(settings.state_path)
     days_back = args.days_back if args.days_back is not None else settings.days_back
 

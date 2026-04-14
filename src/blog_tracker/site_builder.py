@@ -1302,7 +1302,7 @@ def render_index_html() -> str:
     }
 
     function renderPriorityBoard() {
-      const priorityPosts = investmentPosts().filter((post) => post.is_priority).slice(0, 12);
+      const priorityPosts = investmentPosts().filter((post) => post.is_priority);
       els.priorityMeta.textContent = `우선 블로거 글 ${priorityPosts.length}건`;
       renderPostGrid(els.priorityPosts, priorityPosts, "우선 블로거 글이 없습니다.");
     }

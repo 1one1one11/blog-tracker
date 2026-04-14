@@ -1,11 +1,13 @@
 from blog_tracker.config import (
     TelegramDestination,
+    ensure_priority_blog_sources,
     _parse_extra_destinations,
     _split_env_list,
     _unique_destinations,
     _unique_nonempty,
     load_settings,
 )
+from blog_tracker.models import BlogSource
 
 
 def test_split_env_list_accepts_commas_and_newlines():
@@ -50,3 +52,19 @@ def test_load_settings_routes_extra_bot_tokens_to_extra_chat_id(monkeypatch):
         TelegramDestination(bot_token="primary-token", chat_id="primary-chat"),
         TelegramDestination(bot_token="extra-token", chat_id="1382515939"),
     ]
+
+
+def test_ensure_priority_blog_sources_adds_missing_priority_bloggers():
+    sources = [
+        BlogSource(
+            blog_id="existing",
+            display_name="Existing",
+            blog_title="Existing Blog",
+        )
+    ]
+
+    merged = ensure_priority_blog_sources(sources, {"existing", "ranto28"})
+
+    assert [source.blog_id for source in merged] == ["existing", "ranto28"]
+    assert merged[1].display_name == "ranto28"
+    assert merged[1].resolved_rss_url == "https://rss.blog.naver.com/ranto28.xml"

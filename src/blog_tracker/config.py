@@ -156,3 +156,20 @@ def load_priority_bloggers(path: Path) -> set[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     }
+
+
+def ensure_priority_blog_sources(sources: list[BlogSource], priority_bloggers: set[str]) -> list[BlogSource]:
+    existing_ids = {source.blog_id for source in sources}
+    merged = list(sources)
+    for blog_id in sorted(priority_bloggers - existing_ids):
+        merged.append(
+            BlogSource(
+                blog_id=blog_id,
+                display_name=blog_id,
+                blog_title="",
+                group_name="미분류",
+                relationship="우선",
+                enabled=True,
+            )
+        )
+    return merged
