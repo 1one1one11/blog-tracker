@@ -80,6 +80,13 @@ jobs:
         if: always()
         run: python scripts/build_site.py
 
+      - name: Validate priority dashboard
+        if: always()
+        env:
+          BLOG_TRACKER_TIMEZONE: Asia/Seoul
+          BLOG_TRACKER_DAYS_BACK: "4"
+        run: python scripts/check_priority_dashboard.py --site-data site/data/archive.json --days-back "$BLOG_TRACKER_DAYS_BACK" --timezone "$BLOG_TRACKER_TIMEZONE"
+
       - name: Upload digest
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,11 +96,11 @@ jobs:
           if-no-files-found: ignore
 
       - name: Configure Pages
-        if: always()
+        if: success()
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        if: always()
+        if: success()
         uses: actions/upload-pages-artifact@v3
         with:
           path: site/
@@ -113,7 +120,7 @@ jobs:
           key: blog-site-${{ github.run_id }}
 
   deploy:
-    if: always()
+    if: ${{ needs.build.result == 'success' }}
     needs: build
     runs-on: ubuntu-latest
     environment:
