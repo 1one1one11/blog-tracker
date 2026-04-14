@@ -85,25 +85,47 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
                 "link": "https://example.com/1",
                 "tags": ["테스트"],
                 "has_content": True,
-            }
+            },
+            {
+                "blog_id": "ruffian71",
+                "guid": "life-1",
+                "published_at": "2026-03-30T18:00:00+09:00",
+                "classification": "기업분석",
+                "group_name": "통신",
+                "display_name": "상실의 시대",
+                "blog_title": "상실의 시대",
+                "title": "일상 테스트 글",
+                "summary": "별도 페이지로 이동해야 하는 글",
+                "link": "https://blog.naver.com/ruffian71/1",
+                "tags": [],
+                "has_content": True,
+            },
         ],
     }
     (output_dir / "digest_20260330_200000.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     archive = build_site(output_dir=output_dir, archive_dir=archive_dir, site_dir=site_dir)
 
-    assert archive["post_count"] == 1
+    assert archive["post_count"] == 2
     assert (site_dir / "index.html").exists()
+    assert (site_dir / "life.html").exists()
     assert (site_dir / "data" / "archive.json").exists()
+    assert (site_dir / "data" / "life_posts.json").exists()
     assert (site_dir / "data" / "external_sources.json").exists()
     assert json.loads((site_dir / "data" / "archive.json").read_text(encoding="utf-8"))["posts"][0]["guid"] == "post-1"
+    life_posts = json.loads((site_dir / "data" / "life_posts.json").read_text(encoding="utf-8"))
+    assert life_posts["post_count"] == 1
+    assert life_posts["posts"][0]["blog_id"] == "ruffian71"
     external_sources = json.loads((site_dir / "data" / "external_sources.json").read_text(encoding="utf-8"))
     assert "sources" in external_sources
     html = (site_dir / "index.html").read_text(encoding="utf-8")
+    life_html = (site_dir / "life.html").read_text(encoding="utf-8")
+    assert "./life.html" in html
+    assert "상실의 시대 글 모음" in life_html
     assert "우선 블로거 전용 보드" in html
     assert "오늘" in html
     assert "우선 블로거 목록" in html
-    assert "일상 글" in html
+    assert "상실의 시대 별도 페이지" in html
     assert "외부 소스 링크 허브" in html
     assert "PC 최적화" in html
     assert "모바일 최적화" in html

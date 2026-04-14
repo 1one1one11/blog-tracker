@@ -190,6 +190,163 @@ def build_pb_payload(generated_at: datetime) -> dict[str, Any]:
     }
 
 
+def is_life_only_post(post: dict[str, Any]) -> bool:
+    return str(post.get("blog_id") or "").strip() in LIFE_ONLY_BLOG_IDS
+
+
+def build_life_payload(posts: list[dict[str, Any]], generated_at: datetime) -> dict[str, Any]:
+    life_posts = [post for post in posts if is_life_only_post(post)]
+    return {
+        "generated_at": generated_at.isoformat(),
+        "blog_ids": sorted(LIFE_ONLY_BLOG_IDS),
+        "post_count": len(life_posts),
+        "posts": life_posts,
+    }
+
+
+def render_life_html(life_payload: dict[str, Any]) -> str:
+    posts = life_payload.get("posts", [])
+    cards = "\n".join(
+        f"""
+        <article class="post-card">
+          <div class="meta">발행: {html.escape(str(post.get("published_display") or post.get("published_at") or ""))}</div>
+          <h2>{html.escape(str(post.get("title") or "제목 없음"))}</h2>
+          <p>{html.escape(str(post.get("summary") or ""))}</p>
+          <div class="byline">작성자: {html.escape(str(post.get("display_name") or post.get("blog_id") or ""))} · 블로그: {html.escape(str(post.get("blog_title") or ""))}</div>
+          <a class="link-btn" href="{html.escape(str(post.get("link") or "#"))}" target="_blank" rel="noreferrer">원문 열기</a>
+        </article>
+        """
+        for post in posts
+    )
+    if not cards:
+        cards = '<div class="empty">상실의 시대 글 데이터가 아직 없습니다.</div>'
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상실의 시대 글 모음</title>
+  <style>
+    :root {{
+      --bg: #f4efe6;
+      --surface: rgba(255, 250, 243, 0.92);
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: rgba(31, 41, 55, 0.12);
+      --accent: #9a3412;
+      --shadow: 0 22px 50px rgba(68, 39, 12, 0.12);
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ max-width: 100%; overflow-x: hidden; }}
+    body {{
+      margin: 0;
+      font-family: "Pretendard Variable", "Noto Sans KR", sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #f8f4ed 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }}
+    .shell {{
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }}
+    .hero, .post-card, .empty {{
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }}
+    .hero {{
+      padding: 28px;
+      margin-bottom: 18px;
+    }}
+    h1 {{
+      margin: 0 0 10px;
+      font-size: clamp(1.9rem, 4vw, 3.2rem);
+      line-height: 1.12;
+    }}
+    .lede, .meta, .byline {{
+      color: var(--muted);
+      line-height: 1.6;
+    }}
+    .hero-links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }}
+    .link-btn {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+      font-weight: 700;
+      text-decoration: none;
+      width: fit-content;
+    }}
+    .link-btn:hover {{
+      border-color: rgba(154, 52, 18, 0.28);
+      color: var(--accent);
+    }}
+    .posts {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .post-card {{
+      min-width: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }}
+    .post-card h2 {{
+      margin: 0;
+      color: var(--accent);
+      font-size: 1.25rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }}
+    .post-card p {{
+      margin: 0;
+      color: var(--text);
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }}
+    .empty {{
+      padding: 22px;
+      color: var(--muted);
+    }}
+    @media (max-width: 900px) {{
+      .posts {{ grid-template-columns: 1fr; }}
+      .shell {{ width: min(100% - 24px, 720px); }}
+    }}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>상실의 시대 글 모음</h1>
+      <p class="lede">일반 투자 대시보드에서는 제외하고, 이 페이지에만 별도로 모읍니다. 현재 {len(posts)}건입니다.</p>
+      <div class="hero-links">
+        <a class="link-btn" href="./">대시보드로 돌아가기</a>
+        <a class="link-btn" href="https://blog.naver.com/ruffian71" target="_blank" rel="noreferrer">상실의 시대 블로그 열기</a>
+      </div>
+    </section>
+    <section class="posts">
+      {cards}
+    </section>
+  </main>
+</body>
+</html>
+"""
+
+
 def render_pb_html(pb_sources: list[dict[str, str]]) -> str:
     cards = "\n".join(
         f"""
@@ -1065,9 +1222,10 @@ def render_index_html() -> str:
         <section class="section-card life-board" id="life-board">
           <div class="section-head">
             <div>
-              <h2>일상 글</h2>
+              <h2>상실의 시대 별도 페이지</h2>
               <div class="section-meta" id="life-meta">불러오는 중...</div>
             </div>
+            <a class="quick-link" href="./life.html">상실의 시대 글 모음 열기</a>
           </div>
           <div class="posts" id="life-posts"></div>
         </section>
@@ -1243,7 +1401,7 @@ def render_index_html() -> str:
       });
       links.push(buildQuickLink("우선 블로거 모아보기", { priority: "true", section: "priority" }, "#priority-board"));
       links.push(buildQuickLink("우선 블로거 목록", { section: "priority-roster" }, "#priority-roster-section"));
-      links.push(buildQuickLink("일상 글 모아보기", { section: "life" }, "#life-board"));
+      links.push('<a class="quick-link" href="./life.html">상실의 시대 글 모음</a>');
       links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
       links.push(buildQuickLink("외부 소스 링크 허브", { section: "external-sources" }, "#external-sources-board"));
       links.push('<a class="quick-link" href="./pb.html">PB 블로그</a>');
@@ -1264,6 +1422,10 @@ def render_index_html() -> str:
 
     function isLifePost(post) {
       return (post.group_name || "").trim() === "일상";
+    }
+
+    function isLifeOnlyBlogPost(post) {
+      return (post.blog_id || "").trim() === "ruffian71";
     }
 
     function investmentPosts() {
@@ -1355,9 +1517,14 @@ def render_index_html() -> str:
     }
 
     function renderLifeBoard() {
-      const posts = state.archive.posts.filter((post) => isLifePost(post)).slice(0, 24);
-      els.lifeMeta.textContent = `일상 글 ${posts.length}건 · 일반 투자 보드에서는 제외`;
-      renderPostGrid(els.lifePosts, posts, "일상 글이 없습니다.");
+      const posts = state.archive.posts.filter((post) => isLifeOnlyBlogPost(post));
+      els.lifeMeta.textContent = `상실의 시대 글 ${posts.length}건 · 메인 대시보드 카드에서는 제외`;
+      els.lifePosts.innerHTML = `
+        <div class="post empty">
+          <p>상실의 시대 글은 별도 페이지에만 모았습니다.</p>
+          <a class="quick-link" href="./life.html">상실의 시대 글 모음 열기</a>
+        </div>
+      `;
     }
 
     function renderExternalSources() {
@@ -1505,6 +1672,7 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     external_sources = load_external_sources(ROOT / "config" / "external_sources.csv")
     external_sources_payload = build_external_sources_payload(external_sources, generated_at=generated_at)
     pb_payload = build_pb_payload(generated_at=generated_at)
+    life_payload = build_life_payload(archive_payload["posts"], generated_at=generated_at)
 
     archive_path.write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "archive.json").write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1514,9 +1682,11 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
         encoding="utf-8",
     )
     (site_data_dir / "pb_blogs.json").write_text(json.dumps(pb_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (site_data_dir / "life_posts.json").write_text(json.dumps(life_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_dir / "index.html").write_text(render_index_html(), encoding="utf-8")
     (site_dir / "semiconductor-gallery.html").write_text(render_dc_gallery_html(), encoding="utf-8")
     (site_dir / "pb.html").write_text(render_pb_html(pb_payload["sources"]), encoding="utf-8")
+    (site_dir / "life.html").write_text(render_life_html(life_payload), encoding="utf-8")
     build_analysis_files(output_dir=output_dir, site_data_dir=site_data_dir, site_dir=site_dir, archive_payload=archive_payload, generated_at=generated_at)
     (site_dir / ".nojekyll").write_text("", encoding="utf-8")
     return archive_payload
