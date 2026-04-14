@@ -126,6 +126,7 @@ def test_build_site_writes_archive_and_index(tmp_path: Path):
     assert "오늘" in html
     assert "우선 블로거 목록" in html
     assert "상실의 시대 별도 페이지" in html
+    assert html.index('id="posts"') < html.index('id="life-board"')
     assert "외부 소스 링크 허브" in html
     assert "PC 최적화" in html
     assert "모바일 최적화" in html

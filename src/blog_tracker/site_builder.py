@@ -1219,17 +1219,6 @@ def render_index_html() -> str:
           <div class="chips" id="priority-roster"></div>
         </section>
 
-        <section class="section-card life-board" id="life-board">
-          <div class="section-head">
-            <div>
-              <h2>상실의 시대 별도 페이지</h2>
-              <div class="section-meta" id="life-meta">불러오는 중...</div>
-            </div>
-            <a class="quick-link" href="./life.html">상실의 시대 글 모음 열기</a>
-          </div>
-          <div class="posts" id="life-posts"></div>
-        </section>
-
         <section class="section-card" id="dc-board">
           <div class="section-head">
             <div>
@@ -1269,6 +1258,17 @@ def render_index_html() -> str:
           </div>
         </div>
         <div class="posts" id="posts"></div>
+
+        <section class="section-card life-board" id="life-board">
+          <div class="section-head">
+            <div>
+              <h2>상실의 시대 별도 페이지</h2>
+              <div class="section-meta" id="life-meta">불러오는 중...</div>
+            </div>
+            <a class="quick-link" href="./life.html">상실의 시대 글 모음 열기</a>
+          </div>
+          <div class="posts" id="life-posts"></div>
+        </section>
       </main>
     </section>
   </div>
