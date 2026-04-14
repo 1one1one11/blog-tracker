@@ -64,7 +64,7 @@ def write_csv(path: Path, rows: list[tuple[str, str]]) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def test_checker_fails_when_priority_bloggers_drop_out_of_raw_csv(tmp_path: Path, monkeypatch, capsys):
+def test_checker_warns_when_priority_bloggers_drop_out_of_raw_csv(tmp_path: Path, monkeypatch, capsys):
     module = load_script()
     blogs_csv = tmp_path / "config" / "blogs.csv"
     priority_file = tmp_path / "config" / "priority_bloggers.txt"
@@ -77,7 +77,7 @@ def test_checker_fails_when_priority_bloggers_drop_out_of_raw_csv(tmp_path: Path
     priority_file.parent.mkdir(parents=True, exist_ok=True)
     priority_file.write_text("existing\npriority-blog\n", encoding="utf-8")
 
-    monkeypatch.setattr(module, "fetch_recent_posts", lambda source, days_back, timezone_name: [make_post("priority-blog", "guid-1", "Priority title")])
+    monkeypatch.setattr(module, "fetch_recent_posts", lambda source, days_back, timezone_name: [])
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -97,7 +97,7 @@ def test_checker_fails_when_priority_bloggers_drop_out_of_raw_csv(tmp_path: Path
         ],
     )
 
-    assert module.main() == 1
+    assert module.main() == 0
     captured = capsys.readouterr().out
     assert "config/blogs.csv" in captured
     assert "priority-blog" in captured

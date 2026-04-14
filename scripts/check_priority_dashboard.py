@@ -62,10 +62,9 @@ def main() -> int:
     raw_source_ids = {source.blog_id for source in raw_sources}
     missing_from_csv = sorted(priority_bloggers - raw_source_ids)
     if missing_from_csv:
-        print("Priority bloggers missing from config/blogs.csv before merge:")
+        print("Priority bloggers missing from config/blogs.csv before merge; they will be added by priority merge:")
         for blog_id in missing_from_csv:
             print(f"- {blog_id}")
-        return 1
 
     sources = ensure_priority_blog_sources(raw_sources, priority_bloggers)
     priority_sources = [source for source in sources if source.blog_id in priority_bloggers]
