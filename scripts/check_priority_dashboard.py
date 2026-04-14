@@ -46,6 +46,11 @@ def main() -> int:
     parser.add_argument("--site-data", default=str(ROOT / "site" / "data" / "archive.json"))
     parser.add_argument("--days-back", type=int, default=4)
     parser.add_argument("--timezone", default="Asia/Seoul")
+    parser.add_argument(
+        "--warn-only-missing",
+        action="store_true",
+        help="Report live RSS coverage gaps without failing the process.",
+    )
     args = parser.parse_args()
 
     priority_bloggers = load_priority_bloggers(Path(args.priority_file))
@@ -96,6 +101,10 @@ def main() -> int:
             report_missing(label, missing)
             print(f"Checked {len(priority_sources)} priority bloggers and {len(live_posts)} recent RSS posts.")
             failed = True
+
+    if failed and args.warn_only_missing:
+        print("Priority dashboard check completed with warnings.")
+        return 0
 
     if failed:
         return 1

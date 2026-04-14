@@ -204,3 +204,53 @@ def test_checker_allows_latest_digest_to_lag_when_archives_are_current(tmp_path:
     assert module.main() == 0
     captured = capsys.readouterr().out
     assert "Priority dashboard check passed" in captured
+
+
+def test_checker_warn_only_mode_reports_missing_without_failure(tmp_path: Path, monkeypatch, capsys):
+    module = load_script()
+    blogs_csv = tmp_path / "config" / "blogs.csv"
+    priority_file = tmp_path / "config" / "priority_bloggers.txt"
+    output_latest = tmp_path / "output" / "latest.json"
+    docs_latest = tmp_path / "docs" / "data" / "latest.json"
+    archive_data = tmp_path / "data" / "site" / "archive.json"
+    site_data = tmp_path / "site" / "data" / "archive.json"
+
+    write_csv(blogs_csv, [("priority-blog", "Priority")])
+    priority_file.parent.mkdir(parents=True, exist_ok=True)
+    priority_file.write_text("priority-blog\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        module,
+        "fetch_recent_posts",
+        lambda source, days_back, timezone_name: [make_post("priority-blog", "guid-2", "Second title")],
+    )
+
+    write_payload(output_latest, [])
+    write_payload(docs_latest, [])
+    write_payload(archive_data, [])
+    write_payload(site_data, [])
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_priority_dashboard.py",
+            "--blogs-csv",
+            str(blogs_csv),
+            "--priority-file",
+            str(priority_file),
+            "--output-latest",
+            str(output_latest),
+            "--docs-latest",
+            str(docs_latest),
+            "--archive-data",
+            str(archive_data),
+            "--site-data",
+            str(site_data),
+            "--warn-only-missing",
+        ],
+    )
+
+    assert module.main() == 0
+    captured = capsys.readouterr().out
+    assert "Priority dashboard check completed with warnings." in captured
+    assert "guid-2" in captured

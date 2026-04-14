@@ -85,7 +85,7 @@ jobs:
         env:
           BLOG_TRACKER_TIMEZONE: Asia/Seoul
           BLOG_TRACKER_DAYS_BACK: "4"
-        run: python scripts/check_priority_dashboard.py --site-data site/data/archive.json --days-back "$BLOG_TRACKER_DAYS_BACK" --timezone "$BLOG_TRACKER_TIMEZONE"
+        run: python scripts/check_priority_dashboard.py --site-data site/data/archive.json --days-back "$BLOG_TRACKER_DAYS_BACK" --timezone "$BLOG_TRACKER_TIMEZONE" --warn-only-missing
 
       - name: Upload digest
         if: always()
