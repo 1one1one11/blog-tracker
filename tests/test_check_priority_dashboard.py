@@ -103,7 +103,7 @@ def test_checker_fails_when_priority_bloggers_drop_out_of_raw_csv(tmp_path: Path
     assert "priority-blog" in captured
 
 
-def test_checker_fails_when_one_dashboard_file_lags(tmp_path: Path, monkeypatch, capsys):
+def test_checker_fails_when_archive_file_lags(tmp_path: Path, monkeypatch, capsys):
     module = load_script()
     blogs_csv = tmp_path / "config" / "blogs.csv"
     priority_file = tmp_path / "config" / "priority_bloggers.txt"
@@ -125,7 +125,59 @@ def test_checker_fails_when_one_dashboard_file_lags(tmp_path: Path, monkeypatch,
         ],
     )
 
-    write_payload(output_latest, ["guid-1", "guid-2"])
+    write_payload(output_latest, ["guid-1"])
+    write_payload(docs_latest, ["guid-1"])
+    write_payload(archive_data, ["guid-1", "guid-2"])
+    write_payload(site_data, ["guid-1"])
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "check_priority_dashboard.py",
+            "--blogs-csv",
+            str(blogs_csv),
+            "--priority-file",
+            str(priority_file),
+            "--output-latest",
+            str(output_latest),
+            "--docs-latest",
+            str(docs_latest),
+            "--archive-data",
+            str(archive_data),
+            "--site-data",
+            str(site_data),
+        ],
+    )
+
+    assert module.main() == 1
+    captured = capsys.readouterr().out
+    assert "site/data/archive.json" in captured
+    assert "guid-2" in captured
+
+
+def test_checker_allows_latest_digest_to_lag_when_archives_are_current(tmp_path: Path, monkeypatch, capsys):
+    module = load_script()
+    blogs_csv = tmp_path / "config" / "blogs.csv"
+    priority_file = tmp_path / "config" / "priority_bloggers.txt"
+    output_latest = tmp_path / "output" / "latest.json"
+    docs_latest = tmp_path / "docs" / "data" / "latest.json"
+    archive_data = tmp_path / "data" / "site" / "archive.json"
+    site_data = tmp_path / "site" / "data" / "archive.json"
+
+    write_csv(blogs_csv, [("priority-blog", "Priority")])
+    priority_file.parent.mkdir(parents=True, exist_ok=True)
+    priority_file.write_text("priority-blog\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        module,
+        "fetch_recent_posts",
+        lambda source, days_back, timezone_name: [
+            make_post("priority-blog", "guid-1", "Priority title"),
+            make_post("priority-blog", "guid-2", "Second title"),
+        ],
+    )
+
+    write_payload(output_latest, ["guid-1"])
     write_payload(docs_latest, ["guid-1"])
     write_payload(archive_data, ["guid-1", "guid-2"])
     write_payload(site_data, ["guid-1", "guid-2"])
@@ -149,7 +201,6 @@ def test_checker_fails_when_one_dashboard_file_lags(tmp_path: Path, monkeypatch,
         ],
     )
 
-    assert module.main() == 1
+    assert module.main() == 0
     captured = capsys.readouterr().out
-    assert "docs/data/latest.json" in captured
-    assert "guid-2" in captured
+    assert "Priority dashboard check passed" in captured

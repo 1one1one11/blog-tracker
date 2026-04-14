@@ -76,9 +76,10 @@ def main() -> int:
         print(f"Priority dashboard check passed: {len(priority_sources)} bloggers, 0 recent RSS posts.")
         return 0
 
+    # latest.json can represent only the current run's fresh digest when runtime
+    # state is restored in CI. The deploy gate should validate persistent
+    # dashboard archives, which are what the site actually renders from.
     targets = [
-        ("output/latest.json", Path(args.output_latest)),
-        ("docs/data/latest.json", Path(args.docs_latest)),
         ("data/site/archive.json", Path(args.archive_data)),
         ("site/data/archive.json", Path(args.site_data)),
     ]
