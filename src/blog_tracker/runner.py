@@ -15,6 +15,7 @@ from blog_tracker.state import load_seen_guids, save_seen_guids
 from blog_tracker.summarizer import Summarizer
 from blog_tracker.telegram import build_digest, build_digest_messages, send_digest_messages
 
+LIFE_ONLY_BLOG_IDS = {"ruffian71"}
 TELEGRAM_EXCLUDED_GROUPS = {"일상"}
 TELEGRAM_DC_POST_LIMIT = 5
 
@@ -32,18 +33,26 @@ def format_console_report(label: str, posts) -> str:
 def enrich_post(post):
     post.content_text = fetch_post_content(post.link)
     post.classification = classify_post(post)
+    if post.blog_id in LIFE_ONLY_BLOG_IDS:
+        post.group_name = "일상"
+        post.classification = "일상"
     return post
 
 
 def export_dashboard_json(settings, posts, priority_bloggers: set[str], generated_at: datetime) -> None:
     docs_data_dir = settings.root_dir / "docs" / "data"
     docs_data_dir.mkdir(parents=True, exist_ok=True)
+    dashboard_posts = [
+        post
+        for post in posts
+        if post.blog_id not in LIFE_ONLY_BLOG_IDS and post.group_name not in TELEGRAM_EXCLUDED_GROUPS
+    ]
 
-    classification_counts = Counter(post.classification or "unclassified" for post in posts)
+    classification_counts = Counter(post.classification or "unclassified" for post in dashboard_posts)
     payload = {
         "generated_at": generated_at.isoformat(),
-        "total_posts": len(posts),
-        "priority_post_count": sum(1 for post in posts if post.blog_id in priority_bloggers),
+        "total_posts": len(dashboard_posts),
+        "priority_post_count": sum(1 for post in dashboard_posts if post.blog_id in priority_bloggers),
         "classification_counts": dict(sorted(classification_counts.items())),
         "priority_bloggers": sorted(priority_bloggers),
         "posts": [
@@ -62,7 +71,7 @@ def export_dashboard_json(settings, posts, priority_bloggers: set[str], generate
                 "classification": post.classification,
                 "is_priority": post.blog_id in priority_bloggers,
             }
-            for post in posts
+            for post in dashboard_posts
         ],
     }
     for path in [settings.output_dir / "latest.json", docs_data_dir / "latest.json"]:

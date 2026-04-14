@@ -9,6 +9,26 @@ const template = document.getElementById("post-template");
 let currentClassification = "전체";
 let allPosts = [];
 
+function isLifeOnlyPost(post) {
+  return post.blog_id === "ruffian71" || post.group_name === "\uC77C\uC0C1" || post.classification === "\uC77C\uC0C1";
+}
+
+function investmentPayload(data) {
+  const posts = (data.posts || []).filter((post) => !isLifeOnlyPost(post));
+  const classificationCounts = {};
+  posts.forEach((post) => {
+    const key = post.classification || "미분류";
+    classificationCounts[key] = (classificationCounts[key] || 0) + 1;
+  });
+  return {
+    ...data,
+    total_posts: posts.length,
+    priority_post_count: posts.filter((post) => post.is_priority).length,
+    classification_counts: classificationCounts,
+    posts,
+  };
+}
+
 function statCard(label, value) {
   const div = document.createElement("div");
   div.className = "stat-card";
@@ -92,8 +112,9 @@ async function boot() {
     throw new Error("latest.json not found");
   }
   const data = await response.json();
-  allPosts = data.posts;
-  renderStats(data);
+  const visibleData = investmentPayload(data);
+  allPosts = visibleData.posts;
+  renderStats(visibleData);
   renderPriorityPosts();
   renderFilters();
   renderAllPosts();
