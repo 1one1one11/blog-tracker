@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import html
 import json
 from collections import Counter
 from datetime import datetime
@@ -13,6 +14,23 @@ from blog_tracker.dc_gallery import LIST_URL as DC_LIST_URL, fetch_dc_semiconduc
 
 ROOT = Path(__file__).resolve().parents[2]
 LIFE_ONLY_BLOG_IDS = {"ruffian71"}
+PB_BLOGS = [
+    {
+        "name": "rot109",
+        "url": "https://blog.naver.com/rot109",
+        "note": "PB 관련 관점 확인용 블로그",
+    },
+    {
+        "name": "puniman",
+        "url": "https://blog.naver.com/puniman",
+        "note": "PB 관련 관점 확인용 블로그",
+    },
+    {
+        "name": "jinsmkoko",
+        "url": "https://blog.naver.com/jinsmkoko",
+        "note": "PB 관련 관점 확인용 블로그",
+    },
+]
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -162,6 +180,157 @@ def build_external_sources_payload(sources: list[dict[str, str]], generated_at: 
         "categories": dict(categories.most_common()),
         "sources": sources,
     }
+
+
+def build_pb_payload(generated_at: datetime) -> dict[str, Any]:
+    return {
+        "generated_at": generated_at.isoformat(),
+        "source_count": len(PB_BLOGS),
+        "sources": PB_BLOGS,
+    }
+
+
+def render_pb_html(pb_sources: list[dict[str, str]]) -> str:
+    cards = "\n".join(
+        f"""
+        <article class="source-card">
+          <span class="badge">PB</span>
+          <h2>{html.escape(source["name"])}</h2>
+          <p>{html.escape(source["note"])}</p>
+          <a class="source-link" href="{html.escape(source["url"])}" target="_blank" rel="noreferrer">블로그 열기</a>
+        </article>
+        """
+        for source in pb_sources
+    )
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PB 블로그 링크</title>
+  <style>
+    :root {{
+      --bg: #f4efe6;
+      --surface: rgba(255, 250, 243, 0.9);
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: rgba(31, 41, 55, 0.12);
+      --accent: #9a3412;
+      --chip: #f2e5d5;
+      --shadow: 0 22px 50px rgba(68, 39, 12, 0.12);
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ max-width: 100%; overflow-x: hidden; }}
+    body {{
+      margin: 0;
+      font-family: "Pretendard Variable", "Noto Sans KR", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(154, 52, 18, 0.16), transparent 24rem),
+        radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 22rem),
+        linear-gradient(180deg, #f7f2ea 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }}
+    .shell {{
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }}
+    .hero, .source-card {{
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }}
+    .hero {{
+      padding: 28px;
+      margin-bottom: 18px;
+    }}
+    h1 {{
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.3rem);
+      line-height: 1.05;
+    }}
+    .lede {{
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 56rem;
+    }}
+    .hero-links {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }}
+    .link-btn, .source-link {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+      font-weight: 700;
+      text-decoration: none;
+    }}
+    .link-btn:hover, .source-link:hover {{
+      border-color: rgba(154, 52, 18, 0.28);
+      color: var(--accent);
+    }}
+    .sources {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }}
+    .source-card {{
+      min-width: 0;
+      padding: 20px;
+    }}
+    .badge {{
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 800;
+    }}
+    .source-card h2 {{
+      margin: 14px 0 10px;
+      font-size: 1.15rem;
+    }}
+    .source-card p {{
+      margin: 0 0 18px;
+      color: #374151;
+      line-height: 1.6;
+    }}
+    @media (max-width: 900px) {{
+      .sources {{ grid-template-columns: 1fr; }}
+      .shell {{ width: min(100% - 20px, 1120px); padding-top: 20px; }}
+      .hero {{ padding: 22px; }}
+      .source-link {{ width: 100%; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1>PB 블로그</h1>
+      <p class="lede">PB 관점 확인용 블로그 링크입니다.</p>
+      <div class="hero-links">
+        <a class="link-btn" href="./">메인 브리핑으로</a>
+      </div>
+    </section>
+    <section class="sources">
+{cards}
+    </section>
+  </div>
+</body>
+</html>
+"""
 
 
 def render_dc_gallery_html() -> str:
@@ -1077,6 +1246,7 @@ def render_index_html() -> str:
       links.push(buildQuickLink("일상 글 모아보기", { section: "life" }, "#life-board"));
       links.push(buildQuickLink("디시 커뮤니티 픽", { section: "dc" }, "#dc-board"));
       links.push(buildQuickLink("외부 소스 링크 허브", { section: "external-sources" }, "#external-sources-board"));
+      links.push('<a class="quick-link" href="./pb.html">PB 블로그</a>');
       links.push('<a class="quick-link" href="./semiconductor-gallery.html">디시 갤러리 모음</a>');
       links.push('<a class="quick-link" href="./analysis.html">흐름 분석 보드</a>');
       els.quickLinks.innerHTML = links.join("");
@@ -1334,6 +1504,7 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
     dc_payload = load_dc_payload(output_dir, generated_at=generated_at)
     external_sources = load_external_sources(ROOT / "config" / "external_sources.csv")
     external_sources_payload = build_external_sources_payload(external_sources, generated_at=generated_at)
+    pb_payload = build_pb_payload(generated_at=generated_at)
 
     archive_path.write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_data_dir / "archive.json").write_text(json.dumps(archive_payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1342,8 +1513,10 @@ def build_site(output_dir: Path, archive_dir: Path, site_dir: Path, max_posts: i
         json.dumps(external_sources_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    (site_data_dir / "pb_blogs.json").write_text(json.dumps(pb_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     (site_dir / "index.html").write_text(render_index_html(), encoding="utf-8")
     (site_dir / "semiconductor-gallery.html").write_text(render_dc_gallery_html(), encoding="utf-8")
+    (site_dir / "pb.html").write_text(render_pb_html(pb_payload["sources"]), encoding="utf-8")
     build_analysis_files(output_dir=output_dir, site_data_dir=site_data_dir, site_dir=site_dir, archive_payload=archive_payload, generated_at=generated_at)
     (site_dir / ".nojekyll").write_text("", encoding="utf-8")
     return archive_payload
