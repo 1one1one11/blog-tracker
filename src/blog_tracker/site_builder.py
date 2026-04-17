@@ -127,7 +127,11 @@ def load_dc_payload(output_dir: Path, generated_at: datetime) -> dict[str, Any]:
     if dc_path.exists():
         return _load_json(dc_path)
 
-    posts = fetch_dc_semiconductor_posts(limit=30)
+    try:
+        posts = fetch_dc_semiconductor_posts(limit=30)
+    except Exception as exc:
+        print(f"Warning: failed to fetch DC semiconductor gallery: {exc}")
+        posts = []
     return {
         "generated_at": generated_at.isoformat(),
         "source_title": "디시인사이드 반도체산업 마이너 갤러리",
