@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -18,6 +19,9 @@ from blog_tracker.telegram import build_digest, build_digest_messages, send_dige
 LIFE_ONLY_BLOG_IDS = {"ruffian71"}
 TELEGRAM_EXCLUDED_GROUPS = {"일상"}
 TELEGRAM_DC_POST_LIMIT = 5
+RSS_FETCH_WORKERS = 16
+MAX_DIGEST_POSTS = 30
+MAX_POSTS_PER_BLOG = 3
 
 
 def format_console_report(label: str, posts) -> str:
@@ -37,6 +41,37 @@ def enrich_post(post):
         post.group_name = "일상"
         post.classification = "일상"
     return post
+
+
+def classify_post_without_content(post):
+    post.classification = classify_post(post)
+    if post.blog_id in LIFE_ONLY_BLOG_IDS:
+        post.group_name = "일상"
+        post.classification = "일상"
+    return post
+
+
+def select_digest_posts(posts, priority_bloggers: set[str]):
+    selected = []
+    per_blog_counts = Counter()
+    for post in posts:
+        if post.blog_id in LIFE_ONLY_BLOG_IDS or post.group_name in TELEGRAM_EXCLUDED_GROUPS:
+            continue
+        if per_blog_counts[post.blog_id] >= MAX_POSTS_PER_BLOG:
+            continue
+        selected.append(post)
+        per_blog_counts[post.blog_id] += 1
+        if len(selected) >= MAX_DIGEST_POSTS:
+            break
+    return selected
+
+
+def fetch_source_recent_posts(source, days_back: int, timezone_name: str):
+    try:
+        return fetch_recent_posts(source, days_back=days_back, timezone_name=timezone_name)
+    except Exception as exc:
+        print(f"RSS fetch failed for {source.blog_id}: {exc}", file=sys.stderr)
+        return []
 
 
 def export_dashboard_json(settings, posts, priority_bloggers: set[str], generated_at: datetime) -> None:
@@ -169,9 +204,14 @@ def main() -> int:
     days_back = args.days_back if args.days_back is not None else settings.days_back
 
     recent_post_map = {}
-    for source in sources:
-        for post in fetch_recent_posts(source, days_back=days_back, timezone_name=settings.timezone):
-            recent_post_map[post.guid] = post
+    with ThreadPoolExecutor(max_workers=RSS_FETCH_WORKERS) as executor:
+        futures = [
+            executor.submit(fetch_source_recent_posts, source, days_back, settings.timezone)
+            for source in sources
+        ]
+        for future in as_completed(futures):
+            for post in future.result():
+                recent_post_map[post.guid] = post
 
     if not recent_post_map:
         print("No recent blog posts found.")
@@ -183,30 +223,37 @@ def main() -> int:
     recent_posts = list(recent_post_map.values())
     recent_posts.sort(key=lambda item: (item.blog_id not in priority_bloggers, -item.published_at.timestamp()))
 
-    enriched_posts = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(enrich_post, post) for post in recent_posts]
-        for future in as_completed(futures):
-            enriched_posts.append(future.result())
+    for post in recent_posts:
+        classify_post_without_content(post)
 
-    enriched_posts.sort(key=lambda item: (item.blog_id not in priority_bloggers, -item.published_at.timestamp()))
+    fresh_posts = [post for post in recent_posts if post.guid not in seen_guids]
+    digest_candidates = select_digest_posts(fresh_posts, priority_bloggers)
+
+    enriched_candidates = []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(enrich_post, post) for post in digest_candidates]
+        for future in as_completed(futures):
+            enriched_candidates.append(future.result())
+
+    enriched_candidates.sort(key=lambda item: (item.blog_id not in priority_bloggers, -item.published_at.timestamp()))
     summarizer = Summarizer(
         settings.openai_api_key,
         settings.openai_model,
         settings.gemini_api_key,
         settings.gemini_model,
     )
-    enriched_posts = summarizer.summarize_all(enriched_posts)
+    enriched_candidates = summarizer.summarize_all(enriched_candidates)
+    enriched_candidate_map = {post.guid: post for post in enriched_candidates}
+    enriched_posts = [enriched_candidate_map.get(post.guid, post) for post in recent_posts]
 
     dc_bundle = fetch_curated_dc_bundle(limit_per_gallery=30)
     dc_posts = flatten_dc_selected_posts(dc_bundle)
-    summarize_dc_posts(summarizer, dc_posts)
-    dc_bundle = inject_dc_summaries(dc_bundle, dc_posts)
-
-    fresh_posts = [post for post in enriched_posts if post.guid not in seen_guids]
-    digest_posts = [post for post in fresh_posts if post.group_name not in TELEGRAM_EXCLUDED_GROUPS]
-    digest = build_digest(digest_posts, dashboard_url=settings.dashboard_url) if digest_posts else ""
     telegram_dc_posts = dc_posts[:TELEGRAM_DC_POST_LIMIT]
+    summarize_dc_posts(summarizer, telegram_dc_posts)
+    dc_bundle = inject_dc_summaries(dc_bundle, telegram_dc_posts)
+
+    digest_posts = [post for post in enriched_candidates if post.group_name not in TELEGRAM_EXCLUDED_GROUPS]
+    digest = build_digest(digest_posts, dashboard_url=settings.dashboard_url) if digest_posts else ""
     digest_messages = build_digest_messages(
         digest_posts,
         dc_posts=telegram_dc_posts,
@@ -242,7 +289,7 @@ def main() -> int:
     print(f"Digest JSON path: {digest_json_path}")
     print(f"Telegram message count: {len(digest_messages)}")
 
-    should_persist_state = True
+    should_persist_state = not args.dry_run
     if digest_messages and not args.dry_run:
         results = []
         if not settings.telegram_destinations:
@@ -262,14 +309,19 @@ def main() -> int:
         print(f"Telegram success: {all_ok}")
         should_persist_state = all_ok
 
+    if args.dry_run:
+        print("Dry run: skipping state save.")
+        return 0
+
     if should_persist_state:
         seen_guids.update(post.guid for post in fresh_posts)
         save_seen_guids(settings.state_path, seen_guids)
         return 0
 
     print("Skipping state save because Telegram delivery failed.")
-    print("Tracker run completed without failing the workflow; unsent posts remain eligible for the next run.")
-    return 0
+    print("Tracker exiting with a non-zero status so GitHub Actions can surface the delivery issue.")
+    print("Unsent posts remain eligible for the next run.")
+    return 2
 
 
 if __name__ == "__main__":

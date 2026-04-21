@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "17,47 * * * *"
 
 concurrency:
   group: blog-tracker-${{ github.ref }}
@@ -59,6 +59,7 @@ jobs:
         run: python scripts/sync_followings.py --url "$NAVER_FOLLOWINGS_URL"
 
       - name: Run tracker
+        id: run_tracker
         continue-on-error: true
         timeout-minutes: 15
         env:
@@ -75,6 +76,10 @@ jobs:
           BLOG_TRACKER_DAYS_BACK: "4"
           NAVER_FOLLOWINGS_URL: "https://section.blog.naver.com/connect/ViewMoreFollowings.naver?blogId=neo-anderson&widgetSeq=1306670"
         run: python scripts/run_tracker.py
+
+      - name: Warn on tracker delivery failure
+        if: ${{ steps.run_tracker.outcome != 'success' }}
+        run: echo "::warning::Tracker step failed. Check Telegram delivery and tracker logs before trusting message freshness."
 
       - name: Build static site
         if: always()
