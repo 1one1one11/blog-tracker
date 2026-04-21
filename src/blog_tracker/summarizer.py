@@ -32,7 +32,7 @@ class Summarizer:
     def summarize_post(self, post: BlogPost) -> str:
         prompt = (
             "다음 네이버 블로그 글을 한국어로 2문장 이내로 요약해 주세요. "
-            "투자 판단에 도움 되는 핵심 주장, 데이터 포인트, 리스크를 우선 적어 주세요.\n\n"
+            "투자자 판단에 필요한 핵심 주장, 데이터 포인트, 리스크를 우선 반영해 주세요.\n\n"
             f"블로그명: {post.blog_title or post.display_name}\n"
             f"작성자: {post.display_name}\n"
             f"카테고리: {post.category}\n"

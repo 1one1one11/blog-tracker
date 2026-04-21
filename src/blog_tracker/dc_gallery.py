@@ -32,10 +32,10 @@ SEMICONDUCTOR_GALLERY = DcGallery(
 )
 KRSTOCK_GALLERY = DcGallery(
     gallery_id="krstock",
-    title="한국 주식 갤러리",
+    title="국내 주식 갤러리",
     list_url=f"{BASE_URL}/mgallery/board/lists/?id=krstock",
     curated_limit=5,
-    keywords=("코스피", "코스닥", "수급", "시황", "금투세", "공매도", "기관", "외인", "환율", "금리"),
+    keywords=("코스피", "코스닥", "수급", "환율", "금투세", "공매도", "기관", "외인", "환율", "금리"),
 )
 USSTOCK_GALLERY = DcGallery(
     gallery_id="stockus",
@@ -49,14 +49,14 @@ GLOBALSTOCK_GALLERY = DcGallery(
     title="해외주식 갤러리",
     list_url=f"{BASE_URL}/mgallery/board/lists/?id=tenbagger",
     curated_limit=5,
-    keywords=("미국", "중국", "반도체", "ai", "지수", "시황", "실적", "테마", "엔비디아", "테슬라"),
+    keywords=("미국", "중국", "반도체", "ai", "지수", "환율", "실적", "테마", "엔비디아", "테슬라"),
 )
 BITCOIN_GALLERY = DcGallery(
     gallery_id="bitcoins_new1",
     title="비트코인 갤러리",
     list_url=f"{BASE_URL}/board/lists/?id=bitcoins_new1",
     curated_limit=5,
-    keywords=("비트코인", "btc", "이더리움", "eth", "알트", "도미넌스", "현물", "선물", "fomc", "etf"),
+    keywords=("비트코인", "btc", "이더리움", "eth", "알트", "파월", "금리", "관세", "fomc", "etf"),
 )
 
 LIST_URL = SEMICONDUCTOR_GALLERY.list_url
@@ -69,11 +69,11 @@ CURATED_GALLERIES: tuple[DcGallery, ...] = (
 )
 
 MARKET_SIGNAL_KEYWORDS = (
-    "시황",
+    "환율",
     "시장",
     "지수",
     "금리",
-    "환율",
+    "수급",
     "관세",
     "실적",
     "반도체",
@@ -86,7 +86,7 @@ MARKET_SIGNAL_KEYWORDS = (
     "fed",
     "연준",
     "파월",
-    "수급",
+    "금투세",
     "비트코인",
     "btc",
     "이더리움",
@@ -236,7 +236,10 @@ def fetch_curated_dc_bundle(limit_per_gallery: int = 30) -> dict:
     generated_posts: list[DcPost] = []
 
     for gallery in CURATED_GALLERIES:
-        posts = fetch_gallery_posts(gallery, limit=limit_per_gallery)
+        try:
+            posts = fetch_gallery_posts(gallery, limit=limit_per_gallery)
+        except Exception:
+            posts = []
         selected_posts = posts[: gallery.curated_limit]
         generated_posts.extend(selected_posts)
         galleries_payload.append(

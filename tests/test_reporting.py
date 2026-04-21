@@ -10,7 +10,7 @@ def test_build_digest_payload_marks_priority_posts():
             blog_id="priority-blog",
             display_name="작성자",
             blog_title="블로그",
-            group_name="핵심",
+            group_name="주식",
             title="제목",
             link="https://example.com/1",
             guid="guid-1",

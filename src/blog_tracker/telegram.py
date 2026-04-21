@@ -85,7 +85,7 @@ def build_digest_messages(
         blocks.append("<b>우선 블로거 새 글</b>")
         blocks.extend(_render_post(post) for post in priority_posts)
     if dc_posts:
-        blocks.append("<b>디시 커뮤니티 픽</b>")
+        blocks.append("<b>주식 커뮤니티 픽</b>")
         blocks.extend(_render_dc_post(post) for post in dc_posts)
     if regular_posts:
         if priority_posts or dc_posts:

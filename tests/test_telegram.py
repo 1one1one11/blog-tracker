@@ -7,8 +7,8 @@ from blog_tracker.telegram import HEADER, build_digest, build_digest_messages, s
 def _make_post(index: int, summary: str = "요약") -> BlogPost:
     return BlogPost(
         blog_id=f"blog-{index}",
-        display_name=f"작성자 {index}",
-        blog_title=f"블로그 {index}",
+        display_name=f"작성자{index}",
+        blog_title=f"블로그{index}",
         group_name="미분류",
         title=f"제목 {index}",
         link=f"https://example.com/{index}",
@@ -31,7 +31,7 @@ def test_build_digest_keeps_all_posts():
 
 
 def test_build_digest_messages_splits_without_dropping_posts():
-    posts = [_make_post(index, summary="긴요약" * 80) for index in range(1, 5)]
+    posts = [_make_post(index, summary="긴요약 " * 80) for index in range(1, 5)]
     messages = build_digest_messages(posts, max_length=500, dashboard_url="https://example.com/dashboard")
 
     assert len(messages) > 1
