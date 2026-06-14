@@ -1,0 +1,39 @@
+name: keep-scheduled-workflows-active
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub disables scheduled workflows in public repositories after ~60 days
+    # without repository activity. Make a tiny monthly commit so blog-tracker stays active.
+    - cron: "23 0 1 * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keep-scheduled-workflows-active
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update heartbeat file
+        run: |
+          mkdir -p .github
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/scheduled-workflow-heartbeat.txt
+
+      - name: Commit heartbeat if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/scheduled-workflow-heartbeat.txt
+          if git diff --cached --quiet; then
+            echo "No heartbeat changes to commit."
+          else
+            git commit -m "Keep scheduled workflows active"
+            git push
+          fi
